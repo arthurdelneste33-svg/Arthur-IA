@@ -1,0 +1,801 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  Send, 
+  Bot, 
+  User, 
+  Volume2, 
+  Pause, 
+  Play,
+  Sparkles, 
+  Zap, 
+  Brain, 
+  Copy, 
+  Check, 
+  ExternalLink,
+  Loader2, 
+  Trash2, 
+  Mic, 
+  MicOff, 
+  Download, 
+  FileText, 
+  FileCode, 
+  ChevronDown,
+  RefreshCw,
+  Forward,
+  AlertTriangle
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import ReactMarkdown from 'react-markdown';
+import { ChatMessage, ThinkingMode, AccentColorType, AppSettings } from '../types';
+import { CHAT_SUGGESTIONS } from '../data/samplePrompts';
+import { AudioManager, AudioPlaybackState } from '../utils/audioPlayer';
+import { ThinkingVisualizer } from './ThinkingVisualizer';
+
+interface ChatViewProps {
+  messages: ChatMessage[];
+  onSendMessage: (text: string) => Promise<void>;
+  onRetryMessage?: (failedMsgId?: string) => Promise<void>;
+  isLoading: boolean;
+  thinkingMode: ThinkingMode;
+  onClearMessages: () => void;
+  accentColor: AccentColorType;
+  settings: AppSettings;
+}
+
+// Subcomponent for streaming typewriter effect on the latest AI message
+const TypewriterMarkdown: React.FC<{
+  content: string;
+  isLatest: boolean;
+  onFinished?: () => void;
+}> = ({ content, isLatest, onFinished }) => {
+  const [displayedLength, setDisplayedLength] = useState(() => (isLatest ? 0 : content.length));
+  const [isTyping, setIsTyping] = useState(isLatest);
+
+  useEffect(() => {
+    if (!isLatest) {
+      setDisplayedLength(content.length);
+      setIsTyping(false);
+      return;
+    }
+
+    setDisplayedLength(0);
+    setIsTyping(true);
+
+    let currentIndex = 0;
+    // Faster typewriter rate for long content, smooth for short
+    const step = Math.max(2, Math.floor(content.length / 80));
+    const interval = setInterval(() => {
+      currentIndex += step;
+      if (currentIndex >= content.length) {
+        setDisplayedLength(content.length);
+        setIsTyping(false);
+        clearInterval(interval);
+        onFinished?.();
+      } else {
+        setDisplayedLength(currentIndex);
+      }
+    }, 20);
+
+    return () => clearInterval(interval);
+  }, [content, isLatest]);
+
+  const handleSkip = () => {
+    setDisplayedLength(content.length);
+    setIsTyping(false);
+    onFinished?.();
+  };
+
+  const displayedContent = isTyping ? content.slice(0, displayedLength) : content;
+
+  return (
+    <div className="relative group">
+      <div className="prose prose-invert prose-sm max-w-none text-slate-200 break-words leading-relaxed">
+        <ReactMarkdown>{displayedContent}</ReactMarkdown>
+        {isTyping && (
+          <span className="inline-block w-1.5 h-4 bg-violet-400 ml-1 translate-y-0.5 animate-cursor-blink" />
+        )}
+      </div>
+      {isTyping && (
+        <button
+          onClick={handleSkip}
+          className="mt-2 text-[11px] text-violet-400 hover:text-violet-300 flex items-center gap-1 font-medium bg-violet-950/40 px-2 py-0.5 rounded border border-violet-800/40 transition-colors"
+        >
+          <Forward className="w-3 h-3" />
+          <span>Afficher tout</span>
+        </button>
+      )}
+    </div>
+  );
+};
+
+export const ChatView: React.FC<ChatViewProps> = ({
+  messages,
+  onSendMessage,
+  onRetryMessage,
+  isLoading,
+  thinkingMode,
+  onClearMessages,
+  accentColor,
+  settings,
+}) => {
+  const [inputText, setInputText] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isTTSLoading, setIsTTSLoading] = useState<string | null>(null);
+  const [playbackState, setPlaybackState] = useState<{ activeId: string | null; status: AudioPlaybackState }>({
+    activeId: null,
+    status: 'idle',
+  });
+  const [isListening, setIsListening] = useState(false);
+  const [thinkingStepIndex, setThinkingStepIndex] = useState(0);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Subscribe to AudioManager state
+  useEffect(() => {
+    const unsubscribe = AudioManager.subscribe((state) => {
+      setPlaybackState(state);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Cycling animated thinking steps for loading state
+  const thinkingPhases = [
+    'Analyse sémantique du contexte & hypothèses...',
+    'Exploration & décomposition analytique...',
+    'Évaluation logique & vérification des contraintes...',
+    'Synthèse finale et mise en forme soignée...',
+  ];
+
+  useEffect(() => {
+    let interval: any;
+    if (isLoading) {
+      interval = setInterval(() => {
+        setThinkingStepIndex((prev) => (prev + 1) % thinkingPhases.length);
+      }, 1300);
+    }
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
+  // Auto scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading, thinkingStepIndex]);
+
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // TTS with Play / Pause / Resume
+  const handleTTS = async (message: ChatMessage) => {
+    const isCurrentActive = playbackState.activeId === message.id;
+
+    if (isCurrentActive) {
+      if (playbackState.status === 'playing') {
+        AudioManager.pauseAudio();
+        return;
+      } else if (playbackState.status === 'paused') {
+        AudioManager.resumeAudio();
+        return;
+      }
+    }
+
+    AudioManager.stopCurrentAudio();
+    setIsTTSLoading(message.id);
+
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: message.content,
+          voice: settings.ttsVoice,
+          speed: settings.ttsSpeed,
+        }),
+      });
+
+      const data = await res.json();
+      setIsTTSLoading(null);
+
+      if (data.audioBase64) {
+        await AudioManager.playBase64Audio(
+          data.audioBase64,
+          data.mimeType || 'audio/wav',
+          message.id,
+          settings.ttsSpeed
+        );
+      } else {
+        AudioManager.speakWithBrowser(
+          data.textToSpeak || message.content,
+          message.id,
+          settings.ttsSpeed,
+          settings.ttsVoice
+        );
+      }
+    } catch (err) {
+      console.warn('TTS request fallback:', err);
+      setIsTTSLoading(null);
+      AudioManager.speakWithBrowser(
+        message.content,
+        message.id,
+        settings.ttsSpeed,
+        settings.ttsVoice
+      );
+    }
+  };
+
+  // Export conversation to Markdown or Plain Text
+  const handleExportChat = (format: 'markdown' | 'txt') => {
+    if (messages.length === 0) return;
+
+    let content = '';
+    const dateStr = new Date().toLocaleString('fr-FR');
+
+    if (format === 'markdown') {
+      content += `# Discussion avec Arthur IA (Modèle : Arthur IA 0.2 Alpha • Créé par Arthur Delneste)\n`;
+      content += `*Date d'exportation : ${dateStr}*\n\n---\n\n`;
+
+      messages.forEach((msg) => {
+        const isUser = msg.role === 'user';
+        content += `### ${isUser ? '👤 Utilisateur' : '🤖 Arthur IA'} (${msg.timestamp})\n\n`;
+        if (!isUser && msg.thinking) {
+          content += `> **Raisonnement logique :**\n`;
+          content += `> ${msg.thinking.replace(/\n/g, '\n> ')}\n\n`;
+        }
+        content += `${msg.content}\n\n`;
+        if (msg.sources && msg.sources.length > 0) {
+          content += `**Sources :**\n`;
+          msg.sources.forEach((s) => {
+            content += `- [${s.title}](${s.url})\n`;
+          });
+          content += `\n`;
+        }
+        content += `---\n\n`;
+      });
+    } else {
+      content += `=====================================================\n`;
+      content += `   HISTORIQUE DE DISCUSSION ARTHUR IA (v0.2 BETA)\n`;
+      content += `   Date d'exportation : ${dateStr}\n`;
+      content += `=====================================================\n\n`;
+
+      messages.forEach((msg) => {
+        const isUser = msg.role === 'user';
+        content += `[${msg.timestamp}] ${isUser ? 'UTILISATEUR' : 'ARTHUR IA'}:\n`;
+        if (!isUser && msg.thinking) {
+          content += `[Raisonnement]: ${msg.thinking.slice(0, 150)}...\n`;
+        }
+        content += `${msg.content}\n`;
+        if (msg.sources && msg.sources.length > 0) {
+          content += `Sources: ${msg.sources.map((s) => s.title).join(', ')}\n`;
+        }
+        content += `\n-----------------------------------------------------\n\n`;
+      });
+    }
+
+    const blob = new Blob([content], {
+      type: format === 'markdown' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `arthur-ia-chat-${Date.now()}.${format === 'markdown' ? 'md' : 'txt'}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  };
+
+  const toggleSpeechRecognition = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('La reconnaissance vocale n’est pas supportée sur ce navigateur.');
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'fr-FR';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (e: any) => {
+      const transcript = e.results[0][0].transcript;
+      setInputText((prev) => (prev ? `${prev} ${transcript}` : transcript));
+      setIsListening(false);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognition.start();
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim() || isLoading) return;
+    const text = inputText.trim();
+    setInputText('');
+    await onSendMessage(text);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleFormSubmit(e);
+    }
+  };
+
+  const getAccentButtonClass = () => {
+    switch (accentColor) {
+      case 'emerald': return 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/40';
+      case 'amber': return 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-950/40';
+      case 'cyan': return 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-950/40';
+      default: return 'bg-violet-600 hover:bg-violet-500 text-white shadow-violet-950/40';
+    }
+  };
+
+  // Distinct mode badge styling
+  const getModeInfo = () => {
+    switch (thinkingMode) {
+      case 'fast':
+        return {
+          title: 'Mode Rapide Actif',
+          desc: 'Flash Lite — Latence minimale, réponses instantanées.',
+          icon: Zap,
+          badgeColor: 'text-cyan-400 border-cyan-500/40 bg-cyan-950/40 shadow-cyan-950/30',
+          dotColor: 'bg-cyan-400',
+        };
+      case 'advanced':
+        return {
+          title: 'Mode Réflexion Avancée',
+          desc: 'Gemini 3.7 Thinking — Raisonnement logique méthodique et structuré.',
+          icon: Brain,
+          badgeColor: 'text-amber-400 border-amber-500/50 bg-amber-950/40 shadow-amber-950/40 ring-1 ring-amber-500/30',
+          dotColor: 'bg-amber-400',
+        };
+      default:
+        return {
+          title: 'Mode Normal Actif',
+          desc: 'Gemini 3.7 Flash — Équilibre optimal vitesse et analyse approfondie.',
+          icon: Sparkles,
+          badgeColor: 'text-violet-400 border-violet-500/40 bg-violet-950/40 shadow-violet-950/30',
+          dotColor: 'bg-violet-400',
+        };
+    }
+  };
+
+  const modeInfo = getModeInfo();
+  const ModeIcon = modeInfo.icon;
+
+  return (
+    <div id="chat-container" className="flex-1 flex flex-col h-full overflow-hidden bg-[#070b12] relative">
+      {/* Top Mode Context Bar & Chat Actions */}
+      <motion.div 
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="px-4 sm:px-6 py-2.5 bg-slate-900/60 backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between shrink-0 z-10"
+      >
+        <div className="flex items-center gap-2.5 text-xs truncate min-w-0">
+          <div className={`p-1.5 rounded-lg border flex items-center gap-1.5 shadow-sm ${modeInfo.badgeColor} shrink-0`}>
+            <ModeIcon className="w-3.5 h-3.5" />
+            <span className={`w-1.5 h-1.5 rounded-full ${modeInfo.dotColor} animate-pulse`} />
+          </div>
+          <span className="text-slate-200 font-semibold truncate">{modeInfo.title}</span>
+          <span className="text-slate-500 hidden sm:inline truncate">— {modeInfo.desc}</span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Export Conversation Button */}
+          {messages.length > 0 && (
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                id="export-chat-btn"
+                onClick={() => setShowExportMenu((prev) => !prev)}
+                className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white px-2.5 py-1.5 rounded-xl bg-slate-850/80 hover:bg-slate-800 border border-slate-700/60 transition-all shadow-xs"
+                title="Exporter la discussion"
+              >
+                <Download className="w-3.5 h-3.5 text-violet-400" />
+                <span className="hidden sm:inline font-medium">Exporter</span>
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              </button>
+
+              <AnimatePresence>
+                {showExportMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 4 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 mt-2 w-48 rounded-xl bg-slate-900/95 border border-slate-800 shadow-2xl p-1.5 z-50 backdrop-blur-xl space-y-1"
+                  >
+                    <button
+                      onClick={() => handleExportChat('markdown')}
+                      className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2 transition-colors font-medium"
+                    >
+                      <FileCode className="w-4 h-4 text-violet-400 shrink-0" />
+                      <div>
+                        <div>Markdown (.md)</div>
+                        <div className="text-[10px] text-slate-500">Idéal pour Obsidian / Notion</div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => handleExportChat('txt')}
+                      className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2 transition-colors font-medium"
+                    >
+                      <FileText className="w-4 h-4 text-blue-400 shrink-0" />
+                      <div>
+                        <div>Texte brut (.txt)</div>
+                        <div className="text-[10px] text-slate-500">Document texte standard</div>
+                      </div>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* Clear Chat Button */}
+          {messages.length > 0 && (
+            <button
+              id="clear-chat-btn"
+              onClick={onClearMessages}
+              title="Effacer l'historique de discussion"
+              className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-400 px-2.5 py-1.5 rounded-xl hover:bg-slate-800/80 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Vider</span>
+            </button>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Messages Thread Container */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6 pb-24 md:pb-6">
+        {messages.length === 0 ? (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+            className="max-w-2xl mx-auto my-auto py-6 sm:py-10 text-center space-y-6"
+          >
+            {/* Animated Logo Aura */}
+            <div className="relative inline-flex items-center justify-center">
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 blur-2xl opacity-40 animate-pulse-glow" />
+              <div className="relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-violet-600 via-indigo-600 to-slate-900 text-white shadow-2xl border border-violet-400/40">
+                <Bot className="w-8 h-8 sm:w-10 sm:h-10 text-violet-100" />
+              </div>
+            </div>
+
+            <div className="space-y-2 px-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-950/60 text-violet-300 border border-violet-700/50 text-xs font-semibold uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                <span>Arthur IA • Modèle 0.2 Alpha • Par Arthur Delneste</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                Comment puis-je vous assister aujourd'hui ?
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+                Posez vos questions complexes, lancez des raisonnements logiques approfondis, explorez le Web ou générez de la musique et des visuels HD.
+              </p>
+            </div>
+
+            {/* Quick Suggestions Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-left pt-2 px-1">
+              {CHAT_SUGGESTIONS.map((item, idx) => (
+                <motion.button
+                  key={idx}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => onSendMessage(item.prompt)}
+                  className="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-850/80 border border-slate-800/80 hover:border-violet-500/50 transition-all text-slate-300 hover:text-white group shadow-sm text-left backdrop-blur-md"
+                >
+                  <div className="text-xs font-semibold text-violet-400 flex items-center gap-1.5 mb-1">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {item.title}
+                  </div>
+                  <div className="text-xs text-slate-400 line-clamp-2 group-hover:text-slate-300 leading-relaxed">
+                    {item.prompt}
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        ) : (
+          messages.map((msg, index) => {
+            const isAI = msg.role === 'assistant';
+            const isLatestAI = isAI && index === messages.length - 1;
+            const isAudioActive = playbackState.activeId === msg.id;
+            const isPlaying = isAudioActive && playbackState.status === 'playing';
+            const isPaused = isAudioActive && playbackState.status === 'paused';
+            const isBusyTTS = isTTSLoading === msg.id;
+            const hasThinking = Boolean(msg.thinking);
+
+            return (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25 }}
+                id={`message-${msg.id}`}
+                className={`flex gap-2.5 sm:gap-4 max-w-[95%] sm:max-w-3xl ${isAI ? 'mr-auto' : 'ml-auto flex-row-reverse'} w-full`}
+              >
+                {/* Avatar */}
+                <div
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl shrink-0 flex items-center justify-center text-xs font-semibold select-none shadow-md ${
+                    isAI
+                      ? 'bg-gradient-to-br from-violet-600 via-indigo-600 to-indigo-800 text-white border border-violet-400/30'
+                      : 'bg-slate-800 text-slate-200 border border-slate-700'
+                  }`}
+                >
+                  {isAI ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                </div>
+
+                {/* Message Body */}
+                <div className={`space-y-2 flex-1 min-w-0 ${!isAI && 'text-right'}`}>
+                  {/* Thinking Section (Retractable Block) */}
+                  {isAI && hasThinking && (
+                    <ThinkingVisualizer 
+                      thinkingText={msg.thinking!}
+                      defaultExpanded={thinkingMode === 'advanced'}
+                      modelUsed={msg.modelUsed}
+                      mode={thinkingMode}
+                    />
+                  )}
+
+                  {/* Main Bubble */}
+                  {msg.isError ? (
+                    <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 shadow-xl text-rose-200 space-y-3 backdrop-blur-xl ring-1 ring-rose-500/20">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-rose-400">
+                        <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>Incident de communication avec le modèle</span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+                        {msg.content}
+                      </p>
+                      {msg.canRetry && onRetryMessage && (
+                        <div className="pt-1">
+                          <motion.button
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => onRetryMessage(msg.id)}
+                            disabled={isLoading}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-rose-950/50 transition-all disabled:opacity-50"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                            <span>Réessayer la requête</span>
+                          </motion.button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      className={`inline-block text-left p-4 rounded-2xl ${
+                        isAI
+                          ? 'bg-slate-900/90 text-slate-200 border border-slate-800/90 shadow-xl leading-relaxed backdrop-blur-xl ring-1 ring-white/5'
+                          : 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white leading-relaxed font-normal shadow-lg shadow-violet-950/40'
+                      }`}
+                    >
+                      {isAI ? (
+                        <TypewriterMarkdown 
+                          content={msg.content} 
+                          isLatest={isLatestAI && !isBusyTTS} 
+                        />
+                      ) : (
+                        <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">{msg.content}</div>
+                      )}
+
+                      {/* Web Grounding Sources */}
+                      {isAI && msg.sources && msg.sources.length > 0 && (
+                        <div className="mt-3.5 pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+                          <span className="text-slate-400 font-semibold">Sources Web :</span>
+                          {msg.sources.map((src, sIdx) => (
+                            <a
+                              key={sIdx}
+                              href={src.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-850 text-blue-400 hover:text-blue-300 hover:underline border border-slate-700/80 truncate max-w-[200px] transition-colors"
+                            >
+                              <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                              <span className="truncate">{src.title}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action Bar for AI message: Text-To-Speech (Play/Pause) & Copy */}
+                  {isAI && !msg.isError && (
+                    <div className="flex items-center gap-2 pt-1 px-1 text-slate-400 text-xs">
+                      {/* TTS Speak / Pause / Resume Button with Animated Waveform */}
+                      <motion.button
+                        id={`tts-btn-${msg.id}`}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleTTS(msg)}
+                        disabled={isBusyTTS}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
+                          isPlaying
+                            ? 'bg-violet-600 text-white border-violet-500 shadow-md shadow-violet-950/60 ring-1 ring-violet-400/40'
+                            : isPaused
+                            ? 'bg-amber-600/30 text-amber-300 border-amber-500/50 shadow-sm'
+                            : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-800'
+                        }`}
+                        title={
+                          isPlaying 
+                            ? 'Mettre en pause la lecture vocale' 
+                            : isPaused 
+                            ? 'Reprendre la lecture vocale' 
+                            : 'Écouter la réponse avec la synthèse vocale'
+                        }
+                      >
+                        {isBusyTTS ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-400" />
+                        ) : isPlaying ? (
+                          <>
+                            {/* Animated Equalizer Waveform */}
+                            <div className="flex items-center gap-0.5 h-3.5 px-0.5">
+                              <span className="w-1 bg-white rounded-full animate-sound-wave-1" />
+                              <span className="w-1 bg-white rounded-full animate-sound-wave-2" />
+                              <span className="w-1 bg-white rounded-full animate-sound-wave-3" />
+                              <span className="w-1 bg-white rounded-full animate-sound-wave-4" />
+                              <span className="w-1 bg-white rounded-full animate-sound-wave-5" />
+                            </div>
+                            <Pause className="w-3 h-3 ml-0.5" />
+                            <span>Pause</span>
+                          </>
+                        ) : isPaused ? (
+                          <>
+                            <Play className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Reprendre</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-200" />
+                            <span>Écouter</span>
+                          </>
+                        )}
+                      </motion.button>
+
+                      {/* Copy Text Button */}
+                      <button
+                        onClick={() => handleCopy(msg.content, msg.id)}
+                        className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                        title="Copier le texte"
+                      >
+                        {copiedId === msg.id ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+
+                      {msg.modelUsed && (
+                        <span className="text-[10px] font-mono text-slate-500 ml-auto hidden sm:inline">
+                          {msg.modelUsed.replace('gemini-', '')}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })
+        )}
+
+        {/* Dynamic Thinking Animation when Loading */}
+        {isLoading && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex gap-3 max-w-3xl mr-auto items-start"
+          >
+            <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 text-white shadow-lg shrink-0">
+              <Bot className="w-4 h-4" />
+              <span className="absolute inset-0 rounded-xl bg-violet-400 animate-ping opacity-30" />
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-900/95 border border-violet-500/30 space-y-2.5 shadow-2xl shadow-violet-950/30 max-w-md w-full backdrop-blur-xl">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-violet-300 font-semibold">
+                  <Brain className="w-4 h-4 text-violet-400 animate-pulse" />
+                  <span>Raisonnement Arthur IA</span>
+                </div>
+                <span className="text-[10px] font-mono text-slate-300 bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-700">
+                  {thinkingMode.toUpperCase()}
+                </span>
+              </div>
+
+              <div className="text-xs text-slate-300 font-mono transition-all duration-300 flex items-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-400 shrink-0" />
+                <span className="truncate">{thinkingPhases[thinkingStepIndex]}</span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-violet-500 via-indigo-400 to-violet-500 rounded-full"
+                  animate={{
+                    x: ['-100%', '100%'],
+                  }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 1.4,
+                    ease: 'linear',
+                  }}
+                  style={{ width: '60%' }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Message Input Bar */}
+      <div className="p-2.5 sm:p-4 bg-[#090e18]/90 backdrop-blur-xl border-t border-slate-800/80 shrink-0 mb-14 md:mb-0 shadow-2xl">
+        <form onSubmit={handleFormSubmit} className="max-w-4xl mx-auto relative flex items-end gap-2">
+          {/* Voice Input Mic Button */}
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.9 }}
+            onClick={toggleSpeechRecognition}
+            className={`p-3 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border transition-all ${
+              isListening
+                ? 'bg-rose-600 text-white border-rose-500 animate-pulse shadow-lg shadow-rose-950/60'
+                : 'bg-slate-900/90 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+            title={isListening ? 'Arrêter la dictée' : 'Dicter votre message au microphone'}
+          >
+            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          </motion.button>
+
+          {/* Text Area */}
+          <div className="relative flex-1">
+            <textarea
+              ref={textareaRef}
+              id="chat-input-textarea"
+              rows={1}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={isListening ? 'Dictée vocale en cours...' : 'Posez votre question à Arthur IA...'}
+              className="w-full resize-none py-3 pl-4 pr-3 rounded-xl bg-slate-900/90 border border-slate-800/90 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all max-h-32 min-h-[44px] backdrop-blur-md"
+            />
+          </div>
+
+          {/* Send Button */}
+          <motion.button
+            type="submit"
+            id="send-message-btn"
+            whileTap={{ scale: 0.9 }}
+            disabled={!inputText.trim() || isLoading}
+            className={`p-3 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl transition-all font-semibold disabled:opacity-40 disabled:cursor-not-allowed shadow-md ${getAccentButtonClass()}`}
+            title="Envoyer le message"
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          </motion.button>
+        </form>
+      </div>
+    </div>
+  );
+};
