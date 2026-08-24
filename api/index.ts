@@ -6,25 +6,47 @@ app.use(express.json());
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+// 1. ROUTE CHAT
 app.post('/api/chat', async (req, res) => {
   try {
-    // Récupération souple du message selon le nom du champ envoyé par le frontend
-    const userMessage = req.body.message || req.body.prompt || req.body.contents || req.body.text;
+    const { messages, message, prompt, contents } = req.body;
 
-    if (!userMessage) {
-      return res.status(400).json({ error: 'Aucun contenu texte détecté dans la requête.' });
+    // Extrait le texte depuis le tableau `messages` envoyé par le frontend
+    let userText = '';
+    if (Array.isArray(messages) && messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      userText = typeof lastMsg.content === 'string' ? lastMsg.content : JSON.stringify(lastMsg.content);
+    } else {
+      userText = message || prompt || contents || '';
+    }
+
+    if (!userText) {
+      return res.status(400).json({ error: 'Aucun texte fourni.' });
     }
 
     const response = await ai.models.generateContent({
       model: 'gemini-1.5-flash',
-      contents: userMessage,
+      contents: userText,
     });
 
     return res.json({ text: response.text });
   } catch (error: any) {
-    console.error('Erreur Gemini API:', error);
-    return res.status(500).json({ error: error.message || 'Erreur serveur lors de la génération' });
+    console.error('Erreur Chat:', error);
+    return res.status(500).json({ error: error.message || 'Erreur serveur Chat' });
   }
 });
+
+// 2. ROUTES DE SECOURS (Studio Images / Vidéo / Audio / Docs)
+const defaultHandler = (req: any, res: any) => {
+  return res.json({ 
+    text: "Fonctionnalité en cours de configuration sur le serveur.",
+    url: "" 
+  });
+};
+
+app.post('/api/images', defaultHandler);
+app.post('/api/videos', defaultHandler);
+app.post('/api/audio', defaultHandler);
+app.post('/api/docs', defaultHandler);
 
 export default app;
