@@ -1,7 +1,6 @@
 import express, { Request, Response } from "express";
 import path from "path";
 import dotenv from "dotenv";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Modality, ThinkingLevel } from "@google/genai";
 
 dotenv.config();
@@ -186,7 +185,7 @@ async function generateWithRetryAndFallback(
 // ----------------------------------------------------
 
 // 1. Health check & System Diagnostic
-app.get("/api/health", (req: Request, res: Response) => {
+app.get(["/api/health", "/health"], (req: Request, res: Response) => {
   res.json({
     status: "ok",
     version: "v0.1 STABLE ALPHA",
@@ -210,7 +209,7 @@ app.get("/api/health", (req: Request, res: Response) => {
 });
 
 // 2. Chat & Multi-turn Conversation with Roles, Search & Maps Grounding
-app.post("/api/chat", async (req: Request, res: Response) => {
+app.post(["/api/chat", "/chat"], async (req: Request, res: Response) => {
   try {
     const { 
       messages, 
@@ -390,7 +389,7 @@ ${customInstruction ? `Directive supplémentaire: ${customInstruction}` : ""}`;
 });
 
 // 2b. Audio Speech-To-Text Transcription
-app.post("/api/transcribe", async (req: Request, res: Response) => {
+app.post(["/api/transcribe", "/transcribe"], async (req: Request, res: Response) => {
   try {
     const { audioBase64, mimeType = "audio/webm" } = req.body;
     if (!audioBase64) {
@@ -430,7 +429,7 @@ app.post("/api/transcribe", async (req: Request, res: Response) => {
 });
 
 // 3. Text-To-Speech (TTS)
-app.post("/api/tts", async (req: Request, res: Response) => {
+app.post(["/api/tts", "/tts"], async (req: Request, res: Response) => {
   try {
     const { text, voice = "Kore" } = req.body;
     if (!text || typeof text !== "string") {
@@ -490,7 +489,7 @@ app.post("/api/tts", async (req: Request, res: Response) => {
 });
 
 // 4. Music & Audio Generator (Lyria Clip & Lyria Pro)
-app.post("/api/music", async (req: Request, res: Response) => {
+app.post(["/api/music", "/music"], async (req: Request, res: Response) => {
   try {
     const { prompt, style = "lofi", duration = 15, isFullTrack = false, sourceImage, mimeType: imgMime } = req.body;
     if (!prompt) {
@@ -569,7 +568,7 @@ app.post("/api/music", async (req: Request, res: Response) => {
 });
 
 // 5. Image Generator & Image Editor (HD / Multiple Ratios & Styles)
-app.post("/api/generate-image", async (req: Request, res: Response) => {
+app.post(["/api/generate-image", "/generate-image"], async (req: Request, res: Response) => {
   try {
     const { 
       prompt, 
@@ -666,7 +665,7 @@ app.post("/api/generate-image", async (req: Request, res: Response) => {
 });
 
 // 6. Veo 3 Video Generator (Text to Video & Image to Video)
-app.post("/api/generate-video", async (req: Request, res: Response) => {
+app.post(["/api/generate-video", "/generate-video"], async (req: Request, res: Response) => {
   try {
     const { 
       prompt, 
@@ -736,7 +735,7 @@ app.post("/api/generate-video", async (req: Request, res: Response) => {
 });
 
 // 6b. Video Status Polling
-app.post("/api/video-status", async (req: Request, res: Response) => {
+app.post(["/api/video-status", "/video-status"], async (req: Request, res: Response) => {
   try {
     const { operationName } = req.body;
     if (!operationName) {
@@ -763,7 +762,7 @@ app.post("/api/video-status", async (req: Request, res: Response) => {
 });
 
 // 6c. Video Download & Proxy
-app.post("/api/video-download", async (req: Request, res: Response) => {
+app.post(["/api/video-download", "/video-download"], async (req: Request, res: Response) => {
   try {
     const { operationName } = req.body;
     if (!operationName) {
@@ -801,7 +800,7 @@ app.post("/api/video-download", async (req: Request, res: Response) => {
 });
 
 // 6. Document Analysis & Q&A
-app.post("/api/analyze-document", async (req: Request, res: Response) => {
+app.post(["/api/analyze-document", "/analyze-document"], async (req: Request, res: Response) => {
   try {
     const { fileName, textContent, fileData, mimeType, task = "summary", question } = req.body;
     if (!textContent && !fileData) {
@@ -907,6 +906,7 @@ Si la réponse ne figure pas dans le document, indique-le clairement avec honnê
 // ----------------------------------------------------
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
