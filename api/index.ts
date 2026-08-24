@@ -1,19 +1,28 @@
-import express from 'express';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const app = express();
-app.use(express.json());
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Gestion CORS (autorise l'interface React à appeler l'API)
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
 
-// 1. ROUTE CHAT (Fetch direct vers l'API Gemini sans SDK fragile)
-app.post('/api/chat', async (req, res) => {
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY non configurée dans Vercel.' });
+      return res.status(500).json({ error: 'GEMINI_API_KEY non configurée sur Vercel.' });
     }
 
-    const { messages, message, prompt, contents } = req.body;
+    const { messages, message, prompt, contents } = req.body || {};
 
-    // Extrait le texte envoyé par le frontend
+    // Extrait le texte peu importe le format envoyé par le client React
     let userText = '';
     if (Array.isArray(messages) && messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
@@ -23,10 +32,10 @@ app.post('/api/chat', async (req, res) => {
     }
 
     if (!userText) {
-      return res.status(400).json({ error: 'Aucun texte fourni.' });
+      return res.status(400).json({ error: 'Aucun texte fourni dans la requête.' });
     }
 
-    // Appel direct à l'API REST Google Gemini (ultra stable sur Vercel)
+    // Appel direct ultra-stable à l'API REST Google Gemini
     const googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const response = await fetch(googleUrl, {
@@ -44,62 +53,13 @@ app.post('/api/chat', async (req, res) => {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Erreur Google API:', data);
-      return res.status(response.status).json({ error: data.error?.message || 'Erreur API Google' });
+      return res.status(response.status).json({ error: data.error?.message || 'Erreur Gemini' });
     }
 
-    const botReply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Pas de réponse transmise par Gemini.';
+    const botReply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Pas de réponse transmise.';
 
-    return res.json({ text: botReply });
+    return res.status(200).json({ text: botReply });
   } catch (error: any) {
-    console.error('Erreur Chat:', error);
     return res.status(500).json({ error: error.message || 'Erreur serveur interne' });
   }
-});
-
-// 2. ROUTES STUDIO (Image, Vidéo, Audio, Docs)
-const defaultHandler = (req: any, res: any) => {
-  return res.json({ 
-    text: "Fonctionnalité en cours de configuration sur le serveur.",
-    url: "" 
-  });
-};
-
-app.post('/api/images', defaultHandler);
-app.post('/api/videos', defaultHandler);
-app.post('/api/audio', defaultHandler);
-app.post('/api/docs', defaultHandler);
-
-export default app;
-});
-
-// 2. ROUTES DE SECOURS (Studio Images / Vidéo / Audio / Docs)
-const defaultHandler = (req: any, res: any) => {
-  return res.json({ 
-    text: "Fonctionnalité en cours de configuration sur le serveur.",
-    url: "" 
-  });
-};
-
-app.post('/api/images', defaultHandler);
-app.post('/api/videos', defaultHandler);
-app.post('/api/audio', defaultHandler);
-app.post('/api/docs', defaultHandler);
-
-export default app;
-        });
-
-// 2. ROUTES DE SECOURS (Studio Images / Vidéo / Audio / Docs)
-const defaultHandler = (req: any, res: any) => {
-  return res.json({ 
-    text: "Fonctionnalité en cours de configuration sur le serveur.",
-    url: "" 
-  });
-};
-
-app.post('/api/images', defaultHandler);
-app.post('/api/videos', defaultHandler);
-app.post('/api/audio', defaultHandler);
-app.post('/api/docs', defaultHandler);
-
-export default app;
+}
