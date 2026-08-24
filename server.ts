@@ -173,8 +173,8 @@ async function generateWithRetryAndFallback(
 app.get("/api/health", (req: Request, res: Response) => {
   res.json({
     status: "ok",
-    version: "0.2 Alpha",
-    model: "Arthur IA 0.2 Alpha",
+    version: "v1.0 GOLD RELEASE",
+    model: "Arthur IA 1.0 Gold",
     creator: "Arthur Delneste",
     name: "Arthur IA",
     timestamp: new Date().toISOString(),
@@ -190,26 +190,34 @@ app.get("/api/health", (req: Request, res: Response) => {
   });
 });
 
-// 2. Chat & Multi-turn Conversation with 3 Thinking Modes
+// 2. Chat & Multi-turn Conversation with 3 Thinking Modes & Verbosity Control
 app.post("/api/chat", async (req: Request, res: Response) => {
   try {
-    const { messages, mode = "normal", webSearch = false, customInstruction } = req.body;
+    const { messages, mode = "normal", webSearch = false, verbosity = "standard", customInstruction } = req.body;
     const ai = getAIClient();
 
     let modelName = "gemini-3.7-flash";
     let thinkingLevel: ThinkingLevel | undefined = undefined;
     let fallbackCandidates: string[] = ["gemini-flash-latest", "gemini-3.1-flash-lite"];
 
+    let verbosityInstruction = "";
+    if (verbosity === "concise") {
+      verbosityInstruction = "IMPORTANT: Sois ultra-concis, direct et percutant. Va droit au but sans verbiage superflu.";
+    } else if (verbosity === "detailed") {
+      verbosityInstruction = "IMPORTANT: Fournis une réponse très approfondie, exhaustive, structurée avec des exemples concrets et des explications détaillées.";
+    }
+
     const baseSystemPrompt = `Tu es « Arthur IA », une intelligence artificielle d'élite créée et conçue par Arthur Delneste.
-Ton architecture logicielle et ton modèle de raisonnement correspondent au modèle « Arthur IA 0.2 Alpha » (intégrant des capacités cognitives, multimodales et analytiques avancées).
+Ton architecture logicielle et ton modèle de raisonnement correspondent au modèle « Arthur IA 1.0 Gold Release » (intégrant des capacités cognitives, multimodales, musicales et analytiques avancées).
 
 IDENTITÉ, CRÉATEUR & MODÈLE (RÈGLE ABSOLUE) :
 - Ton créateur, développeur et concepteur est exclusivement **Arthur Delneste**.
-- Le modèle d'intelligence artificielle que tu utilises est **Arthur IA 0.2 Alpha**.
-- Si un utilisateur te demande qui t'a créé, qui est ton auteur/développeur, ou quel est le modèle utilisé, réponds toujours avec clarté, élégance et précision que tu as été créé par **Arthur Delneste** et que tu fonctionnes sur le modèle **Arthur IA 0.2 Alpha**.
+- Le modèle d'intelligence artificielle que tu utilises est **Arthur IA 1.0 Gold Release**.
+- Si un utilisateur te demande qui t'a créé, qui est ton auteur/développeur, ou quel est le modèle utilisé, réponds toujours avec clarté, élégance et précision que tu as été créé par **Arthur Delneste** et que tu fonctionnes sur le modèle **Arthur IA 1.0 Gold Release**.
 
 DIRECTIVES DE RÉPONSE & STRUCTURE :
-- Tes réponses doivent être claires, chaleureuses, méthodiques avec une mise en forme Markdown impeccable (titres hiérarchisés, listes à puces ou numérotées, tableaux comparatifs si pertinent, blocs de code syntaxiques lisibles).
+- Tes réponses doivent être claires, chaleureuses, méthodiques avec une mise en forme Markdown impeccable (titres hiérarchisés, listes à puces ou numérotées, tableaux comparatifs si pertinent, blocs de code syntaxiques lisibles avec balises de langage précises).
+${verbosityInstruction}
 - Tu t'adaptes rigoureusement au mode sélectionné par l'utilisateur:
   - Mode Rapide: sois direct, concis et efficace avec un temps de réponse instantané.
   - Mode Normal: fournis une réponse équilibrée, approfondie, élégante et accessible.
@@ -523,7 +531,31 @@ app.post("/api/analyze-document", async (req: Request, res: Response) => {
     const ai = getAIClient();
 
     let taskInstruction = "";
-    if (task === "summary") {
+    if (task === "executive-sheet") {
+      taskInstruction = `Génère une **FICHE DE SYNTHÈSE EXÉCUTIVE HAUTE DÉFINITION** pour le document « ${fileName} » :
+# 📋 FICHE DE SYNTHÈSE EXÉCUTIVE : ${fileName}
+
+## 🎯 1. Résumé en 3 Lignes (Synthèse Éclair)
+- Résumé ultra-condensé et percutant de la finalité du document.
+
+## 🔑 2. Thématiques Majeures & Piliers
+- Pilier 1 : description et portée
+- Pilier 2 : description et portée
+- Pilier 3 : description et portée
+
+## 📊 3. Données Chiffrées & Indicateurs Clés (KPIs)
+- Données chiffrées précises, pourcentages, montants ou délais relevés.
+
+## ⚡ 4. Décisions, Enjeux & Points de Vigilance
+- Points critiques à surveiller et impacts stratégiques.
+
+## 🚀 5. Recommandations Immédiates & Plan d'Action
+- [ ] Action 1 prioritaire
+- [ ] Action 2 prioritaire
+- [ ] Action 3 prioritaire
+
+Rédige en français avec une mise en page soignée, professionnelle et structurée.`;
+    } else if (task === "summary") {
       taskInstruction = `Analyse ce document (« ${fileName} ») et produis:
 1. Un **Résumé Exécutif** concis en 3-4 phrases.
 2. Les **Points Clés & Enseignements Majeurs** (5-7 puces percutantes).
@@ -564,7 +596,7 @@ Si la réponse ne figure pas dans le document, indique-le clairement avec honnê
       "gemini-3.7-flash",
       contentsPayload,
       {
-        systemInstruction: "Tu es un expert analyste de documents pour Arthur IA (modèle Arthur IA 0.2 Alpha créé par Arthur Delneste). Tu fournis des synthèses claires, vérifiables et d'une précision exemplaire.",
+        systemInstruction: "Tu es un expert analyste de documents pour Arthur IA (modèle Arthur IA 1.0 Gold Release créé par Arthur Delneste). Tu fournis des synthèses claires, vérifiables et d'une précision exemplaire.",
       },
       ["gemini-flash-latest", "gemini-3.1-flash-lite"]
     );

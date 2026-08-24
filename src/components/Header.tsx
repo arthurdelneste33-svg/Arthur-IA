@@ -5,7 +5,9 @@ import {
   Brain, 
   Globe, 
   Menu,
-  CheckCircle2
+  CheckCircle2,
+  Command,
+  Search
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { TabType, ThinkingMode, AccentColorType } from '../types';
@@ -20,6 +22,7 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onToggleMobileMenu: () => void;
   systemHealthy: boolean;
+  onOpenCommandPalette?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   onToggleMobileMenu,
   systemHealthy,
+  onOpenCommandPalette,
 }) => {
   const getTabDetails = () => {
     switch (currentTab) {
@@ -82,14 +86,14 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header 
       id="app-header" 
-      className="h-16 px-3 sm:px-6 bg-[#090e18]/80 backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between z-10 shrink-0 select-none shadow-md"
+      className="h-16 px-2.5 sm:px-4 md:px-6 bg-[#090e18]/85 backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between z-10 shrink-0 select-none shadow-md gap-2"
     >
       {/* Left: Mobile Drawer Trigger + Title */}
-      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         <button
           onClick={onToggleMobileMenu}
           aria-label="Ouvrir le menu"
-          className="md:hidden p-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+          className="md:hidden p-2 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -100,18 +104,34 @@ export const Header: React.FC<HeaderProps> = ({
               {tabInfo.title}
             </h2>
             {systemHealthy && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-800/40">
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-800/40 shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Opérationnel
+                <span>Opérationnel</span>
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-400 hidden lg:block truncate">{tabInfo.subtitle}</p>
+          <p className="text-[11px] sm:text-xs text-slate-400 hidden lg:block truncate">{tabInfo.subtitle}</p>
         </div>
       </div>
 
-      {/* Right Controls: Web Search & Reflection Mode Selector */}
-      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+      {/* Right Controls: Command Palette, Web Search & Reflection Mode Selector */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3 shrink-0">
+        {/* Quick Command Palette Trigger */}
+        {onOpenCommandPalette && (
+          <button
+            id="open-cmd-palette-btn"
+            onClick={onOpenCommandPalette}
+            className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-850 transition-all shadow-xs"
+            title="Ouvrir la palette de commandes (Ctrl + K)"
+          >
+            <Search className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+            <span className="font-medium text-slate-300 hidden md:inline">Recherche</span>
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-slate-400 border border-slate-700">
+              Ctrl+K
+            </kbd>
+          </button>
+        )}
+
         {/* Google Search Toggle */}
         {(currentTab === 'chat' || currentTab === 'documents') && (
           <motion.button
@@ -119,50 +139,50 @@ export const Header: React.FC<HeaderProps> = ({
             whileTap={{ scale: 0.95 }}
             onClick={onToggleWebSearch}
             title={webSearch ? 'Recherche Web Google active' : 'Activer la recherche Web en direct'}
-            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium transition-all border ${
+            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 md:px-3 py-1.5 rounded-xl text-xs font-medium transition-all border shrink-0 ${
               webSearch
                 ? 'bg-blue-600/20 text-blue-400 border-blue-500/50 shadow-sm shadow-blue-950/30'
                 : 'bg-slate-900/90 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-850'
             }`}
           >
-            <Globe className={`w-3.5 h-3.5 ${webSearch ? 'text-blue-400 animate-pulse' : 'text-slate-400'}`} />
+            <Globe className={`w-3.5 h-3.5 shrink-0 ${webSearch ? 'text-blue-400 animate-pulse' : 'text-slate-400'}`} />
             <span className="hidden sm:inline">Web Google</span>
           </motion.button>
         )}
 
         {/* 3 Reflection Modes Segmented Control */}
-        <div className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800/80 text-xs backdrop-blur-md shadow-inner">
+        <div className="flex items-center bg-slate-950/90 p-0.5 sm:p-1 rounded-xl border border-slate-800/80 text-xs backdrop-blur-md shadow-inner">
           {/* Mode Rapide - Cyan/Blue */}
           <button
             id="mode-btn-fast"
             onClick={() => onModeChange('fast')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all border border-transparent ${getModeActiveClass('fast')}`}
+            className={`flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg transition-all border border-transparent min-h-[32px] ${getModeActiveClass('fast')}`}
             title="Mode Rapide : Flash Lite, réponses instantanées"
           >
-            <Zap className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Rapide</span>
+            <Zap className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden md:inline">Rapide</span>
           </button>
 
           {/* Mode Normal - Violet */}
           <button
             id="mode-btn-normal"
             onClick={() => onModeChange('normal')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all border border-transparent ${getModeActiveClass('normal')}`}
+            className={`flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg transition-all border border-transparent min-h-[32px] ${getModeActiveClass('normal')}`}
             title="Mode Normal : Flash 3.7, équilibre parfait"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Normal</span>
+            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden md:inline">Normal</span>
           </button>
 
           {/* Mode Réflexion Avancée - Gold/Amber */}
           <button
             id="mode-btn-advanced"
             onClick={() => onModeChange('advanced')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all border border-transparent ${getModeActiveClass('advanced')}`}
+            className={`flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg transition-all border border-transparent min-h-[32px] ${getModeActiveClass('advanced')}`}
             title="Mode Réflexion Avancée : Thinking 3.7, raisonnement étape par étape"
           >
-            <Brain className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Réflexion</span>
+            <Brain className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden md:inline">Réflexion</span>
           </button>
         </div>
       </div>

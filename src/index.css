@@ -55,12 +55,26 @@
   .animate-cursor-blink {
     animation: cursorBlink 0.9s infinite;
   }
+
+  .safe-area-pb {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  }
+  .safe-area-pt {
+    padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+  }
+}
+
+/* Base mobile and responsive styles */
+html, body {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior-y: none;
 }
 
 /* Custom scrollbar for dark glass theme */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -72,3 +86,4 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.4);
 }
+

@@ -102,8 +102,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base font-bold tracking-tight text-white">Arthur IA</h1>
-              <span className="text-[10px] uppercase font-mono font-semibold px-2 py-0.5 rounded-md bg-gradient-to-r from-violet-900/60 to-indigo-900/60 text-violet-300 border border-violet-600/40 shadow-xs">
-                v0.2 Alpha
+              <span className="text-[10px] uppercase font-mono font-semibold px-2 py-0.5 rounded-md bg-gradient-to-r from-emerald-500/20 to-violet-500/20 text-emerald-300 border border-emerald-500/40 shadow-xs">
+                v0.1 STABLE ALPHA
               </span>
             </div>
             <p className="text-xs text-slate-400 font-medium">Par Arthur Delneste</p>
@@ -191,7 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <span className="flex items-center gap-1">
             <ShieldCheck className="w-3 h-3 text-slate-400" /> Modèle IA
           </span>
-          <span className="font-mono text-[10px] text-violet-400 font-semibold">Arthur IA 0.2 Alpha</span>
+          <span className="font-mono text-[10px] text-emerald-400 font-semibold">Arthur IA 0.1 Stable Alpha</span>
         </div>
       </div>
     </div>

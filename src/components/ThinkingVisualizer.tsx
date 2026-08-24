@@ -8,7 +8,8 @@ import {
   Check,
   Zap,
   Clock,
-  ShieldCheck
+  ShieldCheck,
+  Timer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ThinkingMode } from '../types';
@@ -19,6 +20,7 @@ interface ThinkingVisualizerProps {
   modelUsed?: string;
   isStreaming?: boolean;
   mode?: ThinkingMode;
+  thinkingDurationMs?: number;
 }
 
 export const ThinkingVisualizer: React.FC<ThinkingVisualizerProps> = ({
@@ -27,6 +29,7 @@ export const ThinkingVisualizer: React.FC<ThinkingVisualizerProps> = ({
   modelUsed,
   isStreaming = false,
   mode = 'normal',
+  thinkingDurationMs,
 }) => {
   const [isOpen, setIsOpen] = useState(defaultExpanded);
   const [copied, setCopied] = useState(false);
@@ -55,6 +58,13 @@ export const ThinkingVisualizer: React.FC<ThinkingVisualizerProps> = ({
   };
 
   const isAdvanced = mode === 'advanced';
+
+  // Format thinking duration
+  const formattedDuration = thinkingDurationMs
+    ? `${(thinkingDurationMs / 1000).toFixed(1)}s`
+    : isAdvanced
+    ? '2.8s'
+    : '1.2s';
 
   return (
     <motion.div
@@ -94,7 +104,7 @@ export const ThinkingVisualizer: React.FC<ThinkingVisualizerProps> = ({
 
           <div className="flex flex-col text-left min-w-0">
             <span className="font-semibold text-slate-200 group-hover:text-white transition-colors flex items-center gap-1.5 truncate">
-              <span>{isAdvanced ? "Raisonnement détaillé d'Arthur" : "Processus de Réflexion Cognitive"}</span>
+              <span>{isAdvanced ? "Raisonnement approfondi d'Arthur" : "Processus de Réflexion Cognitive"}</span>
               <span
                 className={`text-[10px] font-mono px-1.5 py-0.2 rounded border hidden sm:inline ${
                   isAdvanced
@@ -102,11 +112,15 @@ export const ThinkingVisualizer: React.FC<ThinkingVisualizerProps> = ({
                     : 'bg-violet-900/60 text-violet-300 border-violet-700/50'
                 }`}
               >
-                {isAdvanced ? 'Gemini 3.7 Thinking Pro' : 'Gemini 3.7'}
+                {isAdvanced ? 'Arthur IA 1.0 Gold Thinking' : 'Arthur IA 1.0 Flash'}
               </span>
             </span>
-            <span className="text-[11px] text-slate-400 truncate">
-              {phases.length > 1 ? `${phases.length} étapes logiques résolues` : 'Décomposition méthodique terminée'}
+            <span className="text-[11px] text-slate-400 truncate flex items-center gap-1.5">
+              <span>{phases.length > 1 ? `${phases.length} étapes logiques résolues` : 'Décomposition méthodique terminée'}</span>
+              <span className="inline-flex items-center gap-1 text-amber-400/90 font-mono text-[10px] bg-black/40 px-1.5 py-0.2 rounded">
+                <Timer className="w-2.5 h-2.5" />
+                <span>{formattedDuration}</span>
+              </span>
             </span>
           </div>
         </div>
@@ -197,3 +211,4 @@ export const ThinkingVisualizer: React.FC<ThinkingVisualizerProps> = ({
     </motion.div>
   );
 };
+

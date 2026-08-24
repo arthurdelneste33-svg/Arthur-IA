@@ -30,6 +30,7 @@ import { ChatMessage, ThinkingMode, AccentColorType, AppSettings } from '../type
 import { CHAT_SUGGESTIONS } from '../data/samplePrompts';
 import { AudioManager, AudioPlaybackState } from '../utils/audioPlayer';
 import { ThinkingVisualizer } from './ThinkingVisualizer';
+import { CodeBlock } from './CodeBlock';
 
 interface ChatViewProps {
   messages: ChatMessage[];
@@ -40,6 +41,7 @@ interface ChatViewProps {
   onClearMessages: () => void;
   accentColor: AccentColorType;
   settings: AppSettings;
+  onShowToast?: (type: 'success' | 'error' | 'info' | 'warn', message: string, title?: string) => void;
 }
 
 // Subcomponent for streaming typewriter effect on the latest AI message
@@ -90,7 +92,29 @@ const TypewriterMarkdown: React.FC<{
   return (
     <div className="relative group">
       <div className="prose prose-invert prose-sm max-w-none text-slate-200 break-words leading-relaxed">
-        <ReactMarkdown>{displayedContent}</ReactMarkdown>
+        <ReactMarkdown
+          components={{
+            code({ className, children, ...props }) {
+              const match = /language-(\w+)/.exec(className || '');
+              const isInline = !match && !String(children).includes('\n');
+              if (isInline) {
+                return (
+                  <code className="px-1.5 py-0.5 rounded-md bg-slate-800/90 text-violet-300 font-mono text-xs border border-slate-750" {...props}>
+                    {children}
+                  </code>
+                );
+              }
+              return (
+                <CodeBlock
+                  code={String(children).replace(/\n$/, '')}
+                  language={match ? match[1] : undefined}
+                />
+              );
+            },
+          }}
+        >
+          {displayedContent}
+        </ReactMarkdown>
         {isTyping && (
           <span className="inline-block w-1.5 h-4 bg-violet-400 ml-1 translate-y-0.5 animate-cursor-blink" />
         )}
@@ -487,9 +511,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
             </div>
 
             <div className="space-y-2 px-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-950/60 text-violet-300 border border-violet-700/50 text-xs font-semibold uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-                <span>Arthur IA • Modèle 0.2 Alpha • Par Arthur Delneste</span>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 text-xs font-semibold uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Arthur IA • v0.1 STABLE ALPHA • Par Arthur Delneste</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                 Comment puis-je vous assister aujourd'hui ?
@@ -504,14 +528,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
               {CHAT_SUGGESTIONS.map((item, idx) => (
                 <motion.button
                   key={idx}
-                  whileHover={{ scale: 1.02 }}
+                  whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => onSendMessage(item.prompt)}
-                  className="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-850/80 border border-slate-800/80 hover:border-violet-500/50 transition-all text-slate-300 hover:text-white group shadow-sm text-left backdrop-blur-md"
+                  className="p-3 sm:p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-850/80 border border-slate-800/80 hover:border-violet-500/50 transition-all text-slate-300 hover:text-white group shadow-sm text-left backdrop-blur-md cursor-pointer"
                 >
                   <div className="text-xs font-semibold text-violet-400 flex items-center gap-1.5 mb-1">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    {item.title}
+                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{item.title}</span>
                   </div>
                   <div className="text-xs text-slate-400 line-clamp-2 group-hover:text-slate-300 leading-relaxed">
                     {item.prompt}
@@ -537,11 +561,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25 }}
                 id={`message-${msg.id}`}
-                className={`flex gap-2.5 sm:gap-4 max-w-[95%] sm:max-w-3xl ${isAI ? 'mr-auto' : 'ml-auto flex-row-reverse'} w-full`}
+                className={`flex gap-2 sm:gap-3 md:gap-4 max-w-[96%] sm:max-w-[90%] md:max-w-3xl lg:max-w-4xl ${isAI ? 'mr-auto' : 'ml-auto flex-row-reverse'} w-full`}
               >
                 {/* Avatar */}
                 <div
-                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl shrink-0 flex items-center justify-center text-xs font-semibold select-none shadow-md ${
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl shrink-0 flex items-center justify-center text-xs font-semibold select-none shadow-md mt-0.5 ${
                     isAI
                       ? 'bg-gradient-to-br from-violet-600 via-indigo-600 to-indigo-800 text-white border border-violet-400/30'
                       : 'bg-slate-800 text-slate-200 border border-slate-700'
@@ -564,7 +588,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
                   {/* Main Bubble */}
                   {msg.isError ? (
-                    <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 shadow-xl text-rose-200 space-y-3 backdrop-blur-xl ring-1 ring-rose-500/20">
+                    <div className="p-3.5 sm:p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 shadow-xl text-rose-200 space-y-3 backdrop-blur-xl ring-1 ring-rose-500/20">
                       <div className="flex items-center gap-2 text-xs font-semibold text-rose-400">
                         <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
                         <span>Incident de communication avec le modèle</span>
@@ -578,7 +602,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                             whileTap={{ scale: 0.95 }}
                             onClick={() => onRetryMessage(msg.id)}
                             disabled={isLoading}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-rose-950/50 transition-all disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-rose-950/50 transition-all disabled:opacity-50 min-h-[36px]"
                           >
                             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
                             <span>Réessayer la requête</span>
@@ -588,7 +612,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     </div>
                   ) : (
                     <div
-                      className={`inline-block text-left p-4 rounded-2xl ${
+                      className={`inline-block text-left p-3 sm:p-4 rounded-2xl max-w-full ${
                         isAI
                           ? 'bg-slate-900/90 text-slate-200 border border-slate-800/90 shadow-xl leading-relaxed backdrop-blur-xl ring-1 ring-white/5'
                           : 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white leading-relaxed font-normal shadow-lg shadow-violet-950/40'
@@ -600,7 +624,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                           isLatest={isLatestAI && !isBusyTTS} 
                         />
                       ) : (
-                        <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">{msg.content}</div>
+                        <div className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed">{msg.content}</div>
                       )}
 
                       {/* Web Grounding Sources */}
@@ -613,7 +637,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                               href={src.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-850 text-blue-400 hover:text-blue-300 hover:underline border border-slate-700/80 truncate max-w-[200px] transition-colors"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-850 text-blue-400 hover:text-blue-300 hover:underline border border-slate-700/80 truncate max-w-[180px] sm:max-w-[220px] transition-colors"
                             >
                               <ExternalLink className="w-2.5 h-2.5 shrink-0" />
                               <span className="truncate">{src.title}</span>
@@ -626,14 +650,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
                   {/* Action Bar for AI message: Text-To-Speech (Play/Pause) & Copy */}
                   {isAI && !msg.isError && (
-                    <div className="flex items-center gap-2 pt-1 px-1 text-slate-400 text-xs">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1 px-0.5 text-slate-400 text-xs">
                       {/* TTS Speak / Pause / Resume Button with Animated Waveform */}
                       <motion.button
                         id={`tts-btn-${msg.id}`}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleTTS(msg)}
                         disabled={isBusyTTS}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
+                        className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-medium transition-all min-h-[36px] ${
                           isPlaying
                             ? 'bg-violet-600 text-white border-violet-500 shadow-md shadow-violet-950/60 ring-1 ring-violet-400/40'
                             : isPaused
@@ -676,18 +700,30 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         )}
                       </motion.button>
 
-                      {/* Copy Text Button */}
-                      <button
+                      {/* Copy Text Button with label */}
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.02 }}
                         onClick={() => handleCopy(msg.content, msg.id)}
-                        className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-                        title="Copier le texte"
+                        className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-medium transition-all min-h-[36px] ${
+                          copiedId === msg.id
+                            ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/50 shadow-xs'
+                            : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-800'
+                        }`}
+                        title="Copier l'intégralité de la réponse dans le presse-papier"
                       >
                         {copiedId === msg.id ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            <span className="text-emerald-400 font-semibold">Copié !</span>
+                          </>
                         ) : (
-                          <Copy className="w-3.5 h-3.5" />
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copier le texte</span>
+                          </>
                         )}
-                      </button>
+                      </motion.button>
 
                       {msg.modelUsed && (
                         <span className="text-[10px] font-mono text-slate-500 ml-auto hidden sm:inline">
@@ -795,6 +831,18 @@ export const ChatView: React.FC<ChatViewProps> = ({
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </motion.button>
         </form>
+
+        {/* Keyboard shortcut hint bar */}
+        <div className="max-w-4xl mx-auto flex items-center justify-between pt-2 px-1 text-[11px] text-slate-500 font-mono">
+          <div className="flex items-center gap-3">
+            <span><kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Entrée</kbd> Envoyer</span>
+            <span className="hidden sm:inline"><kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Maj+Entrée</kbd> Saut de ligne</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-violet-400/80">
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-violet-300 border border-slate-700">Ctrl + K</kbd>
+            <span className="hidden sm:inline">Palette d'actions</span>
+          </div>
+        </div>
       </div>
     </div>
   );

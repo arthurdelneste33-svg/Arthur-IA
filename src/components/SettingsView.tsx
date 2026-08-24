@@ -85,32 +85,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const changelogData = [
     {
-      version: 'v0.2 Alpha',
-      date: 'Version Actuelle',
-      badge: 'Architecture Arthur IA 0.2 Alpha',
+      version: 'v0.1 STABLE ALPHA',
+      date: 'Version Actuelle (Alpha Stable)',
+      badge: 'Stabilisation Complète & Ergonomie',
       items: [
-        '👨‍💻 Concepteur & Créateur : Arthur Delneste.',
-        '🧠 Moteur de Raisonnement Arthur IA 0.2 Alpha avec pipeline de résilience et fallback intelligent.',
-        '✨ Effet Typewriter : Animation fluide et naturelle de saisie de texte lors des réponses de l’assistant.',
-        '🎨 Design Glassmorphism : Effets de flou arrière-plan (backdrop-blur-xl), ombres subtiles et bordures lumineuses.',
-        '📥 Export de Discussion : Téléchargement direct des échanges au format Markdown (.md) ou Texte brut (.txt).',
-        '🎙️ Contrôle TTS Étendu : Pause et reprise vocale en direct avec égaliseur à forme d’onde animé.',
-        '🧠 Modes de Réflexion Polarisés : Badges lumineux dédiés (Cyan pour Rapide, Violet pour Normal, Or pour Réflexion Avancée).',
-        '📂 Bloc « Raisonnement détaillé d’Arthur » : Décomposition rétractable des étapes cognitives en mode avancé.',
-        '📄 Aperçu Brut Documents : Affichage instantané du texte extrait avec métriques (mots, caractères, lignes) et recherche rapide.',
-        '🛡️ Audit Système Interactif : Protocole de diagnostic détaillé avec suivi de latence et vérification multimodale.',
+        '👨‍💻 Créateur & Concepteur : Arthur Delneste.',
+        '🛠️ Stabilisation & Résolution de Bugs : Correction des décalages d\'affichage, bugs de mise en page et ajustement précis sur mobile, tablette et desktop.',
+        '🔒 Validation Stricte des Saisies : Sécurisation de tous les champs de saisie (Chat, Studio Images, Studio Audio) avec messages d\'alerte et prévention des requêtes invalides ou vides.',
+        '📑 Analyseur de Documents Renforcé : Détection automatique des formats non supportés et alertes discrètes pour les fichiers vides ou corrompus.',
+        '📋 Copie Rapide de Réponses : Ajout du bouton « Copier le texte » avec retour visuel immédiat sur toutes les réponses du chat.',
+        '⏳ Indicateurs & Spinners Visuels : Ajout de loaders et squelettes d\'attente animés sur chaque module de génération (Chat, Audio, Images, Documents).',
+        '✨ Animations & Micro-interactions : Fluidité accrue, transitions Framer Motion optimisées et retour haptique/visuel sur chaque bouton.',
+        '🩺 Outil de Diagnostic d\'Intégrité : Test complet à 100% opérationnel validant la santé de l\'ensemble des 6 sous-systèmes.',
       ],
     },
     {
       version: 'v0.1 Alpha',
       date: 'Release Initiale',
-      badge: 'Base Stable',
+      badge: 'Architecture Multimodale',
       items: [
-        '🤖 Assistant conversationnel Arthur IA créé par Arthur Delneste.',
-        '🎵 Studio Audio & Musique avec composition procédurale et pistes de démonstration.',
-        '🖼️ Studio Graphique HD avec styles variés (Photographique, Cyberpunk, 3D, etc.).',
-        '📑 Analyse documentaire PDF/TXT/CSV avec synthèse et questions-réponses interactives.',
-        '📱 Interface mobile responsive avec barre de navigation rapide et tiroir latéral.',
+        '🤖 Assistant conversationnel Arthur IA par Arthur Delneste.',
+        '🎵 Studio Audio & Musique avec génération procédurale.',
+        '🖼️ Studio Graphique HD Imagen.',
+        '📑 Analyse documentaire et synthèse textuelle.',
       ],
     },
   ];
@@ -172,7 +169,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     onAddLog({
       level: 'info',
       module: 'DIAGNOSTIC',
-      message: 'Début du protocole d’audit d’intégrité système Arthur IA v0.2 Alpha (Créé par Arthur Delneste)...',
+      message: 'Début du protocole d’audit d’intégrité système Arthur IA v0.1 STABLE ALPHA (Créé par Arthur Delneste)...',
     });
 
     setDiagnostics({
@@ -241,16 +238,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     onAddLog({
       level: 'info',
       module: 'UPDATE_SERVICE',
-      message: 'Interrogation des registres de mise à jour pour v0.2 Alpha...',
+      message: 'Interrogation des registres de mise à jour pour v0.1 STABLE ALPHA...',
     });
 
     setTimeout(() => {
       setIsCheckingUpdates(false);
-      setUpdateMessage('Arthur IA est à jour avec le modèle Arthur IA 0.2 Alpha (Conçu par Arthur Delneste).');
+      setUpdateMessage('Arthur IA est à jour avec la version Arthur IA v0.1 STABLE ALPHA (Conçu par Arthur Delneste).');
       onAddLog({
         level: 'success',
         module: 'UPDATE_SERVICE',
-        message: 'Arthur IA 0.2 Alpha est synchronisé sur la dernière révision stable.',
+        message: 'Arthur IA v0.1 STABLE ALPHA est synchronisé sur la dernière révision stable.',
       });
     }, 850);
   };
@@ -273,24 +270,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const filteredLogs = logs.filter((l) => (logFilter === 'all' ? true : l.level === logFilter));
 
   return (
-    <div id="settings-view" className="flex-1 overflow-y-auto p-3 sm:p-8 bg-[#070b12] space-y-6 sm:space-y-8 pb-28 md:pb-8">
+    <div id="settings-view" className="flex-1 overflow-y-auto p-3 sm:p-6 md:p-8 bg-[#070b12] space-y-5 sm:space-y-7 pb-24 md:pb-8">
       {/* Header Context */}
       <motion.div 
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-5xl mx-auto space-y-2"
+        className="max-w-5xl mx-auto space-y-1.5 sm:space-y-2"
       >
         <div className="flex items-center gap-2 text-violet-400 text-xs font-semibold uppercase tracking-wider">
           <Settings className="w-4 h-4" />
           <span>Configuration & Surveillance Système</span>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+          <h2 className="text-lg sm:text-2xl font-bold text-white tracking-tight">
             Paramètres de l'Assistant Arthur IA
           </h2>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-950/60 text-violet-300 border border-violet-700/50 text-xs font-semibold uppercase tracking-wider w-fit">
-            <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-            <span>Modèle 0.2 Alpha • Par Arthur Delneste</span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/50 text-xs font-semibold uppercase tracking-wider w-fit">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <span>v0.1 STABLE ALPHA • Par Arthur Delneste</span>
           </span>
         </div>
         <p className="text-xs sm:text-sm text-slate-400">
@@ -298,9 +295,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </p>
       </motion.div>
 
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-5 sm:space-y-6">
         {/* Section 1: Niveaux de Réflexion (Mode Actif) */}
-        <div className="bg-slate-900/80 rounded-2xl border border-slate-800 p-4 sm:p-6 space-y-4 shadow-xl backdrop-blur-xl">
+        <div className="bg-slate-900/80 rounded-2xl border border-slate-800 p-3.5 sm:p-6 space-y-4 shadow-xl backdrop-blur-xl">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-300 border-b border-slate-800 pb-3">
             <Cpu className="w-4 h-4 text-violet-400" />
             <span>Niveau de Réflexion Actif</span>
@@ -620,7 +617,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span>Mises à Jour & Journal des Modifications (Changelog)</span>
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                Modèle actif : <strong className="text-white font-mono">Arthur IA 0.2 Alpha</strong> • Concepteur : <strong className="text-violet-300">Arthur Delneste</strong>
+                Modèle actif : <strong className="text-emerald-400 font-mono">Arthur IA 0.1 Stable Alpha</strong> • Concepteur : <strong className="text-violet-300">Arthur Delneste</strong>
               </p>
             </div>
             <div className="flex items-center gap-2">

@@ -2,14 +2,26 @@ export type TabType = 'chat' | 'audio' | 'images' | 'documents' | 'settings';
 
 export type ThinkingMode = 'fast' | 'normal' | 'advanced';
 
+export type ResponseVerbosity = 'concise' | 'standard' | 'detailed';
+
+export interface ToastNotification {
+  id: string;
+  type: 'success' | 'error' | 'info' | 'warn';
+  title?: string;
+  message: string;
+  duration?: number;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
   thinking?: string;
+  thinkingDurationMs?: number;
   modelUsed?: string;
   mode?: ThinkingMode;
+  verbosity?: ResponseVerbosity;
   sources?: Array<{ title: string; url: string }>;
   audioBase64?: string;
   isError?: boolean;
@@ -21,6 +33,7 @@ export interface MusicTrack {
   title: string;
   prompt: string;
   style: string;
+  genre?: string;
   duration: number;
   audioUrl: string;
   audioBase64?: string;
@@ -38,6 +51,8 @@ export interface GeneratedImage {
   quality: 'HD' | 'Ultra';
   imageUrl: string;
   createdAt: string;
+  width?: number;
+  height?: number;
 }
 
 export interface DocumentItem {
@@ -49,7 +64,10 @@ export interface DocumentItem {
   base64Data?: string;
   mimeType?: string;
   uploadedAt: string;
+  wordCount?: number;
+  tokenCount?: number;
   summary?: string;
+  executiveSummary?: string;
   qas: Array<{
     id: string;
     question: string;
@@ -69,6 +87,7 @@ export interface AppSettings {
   ttsVoice: TTSVoice;
   ttsSpeed: TTSSpeed;
   defaultThinkingMode: ThinkingMode;
+  responseVerbosity: ResponseVerbosity;
   autoPlayTts: boolean;
   webSearchDefault: boolean;
 }
@@ -91,3 +110,12 @@ export interface SystemDiagnostics {
   lastChecked?: string;
   latencyMs?: number;
 }
+
+export interface ToastNotification {
+  id: string;
+  type: 'success' | 'error' | 'info' | 'warn';
+  title?: string;
+  message: string;
+  timestamp?: number;
+}
+

@@ -49,7 +49,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   return (
     <nav
       id="mobile-bottom-nav"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0d131f]/95 backdrop-blur-xl border-t border-slate-800/90 px-2 py-1.5 flex items-center justify-around select-none safe-area-pb"
+      aria-label="Navigation mobile"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0d131f]/95 backdrop-blur-2xl border-t border-slate-800/90 px-1.5 py-1 flex items-center justify-around select-none safe-area-pb shadow-2xl"
     >
       {navItems.map((item) => {
         const Icon = item.icon;
@@ -58,18 +59,18 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <button
             key={item.id}
             onClick={() => onSelectTab(item.id)}
-            className="flex flex-col items-center justify-center py-1 px-3 min-w-[56px] min-h-[48px] rounded-xl transition-all relative"
+            className="flex flex-col items-center justify-center py-1 px-2 flex-1 min-w-[50px] min-h-[48px] rounded-xl transition-all relative active:scale-95 touch-manipulation"
           >
             <div
-              className={`p-1.5 rounded-xl transition-colors ${
-                isActive ? getAccentBg() : 'text-slate-400'
+              className={`p-1.5 rounded-xl transition-all ${
+                isActive ? getAccentBg() : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <Icon className="w-5 h-5" />
             </div>
             <span
               className={`text-[10px] font-medium mt-0.5 tracking-tight ${
-                isActive ? getAccentText() : 'text-slate-500'
+                isActive ? getAccentText() : 'text-slate-400'
               }`}
             >
               {item.label}
@@ -77,7 +78,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             {isActive && (
               <motion.div
                 layoutId="bottomNavDot"
-                className="w-1 h-1 rounded-full bg-violet-400 absolute bottom-0.5"
+                className="w-1.5 h-1.5 rounded-full bg-violet-400 absolute bottom-0.5 shadow-xs shadow-violet-400/80"
               />
             )}
           </button>

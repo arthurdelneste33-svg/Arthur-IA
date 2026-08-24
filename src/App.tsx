@@ -13,7 +13,8 @@ import {
   GeneratedImage, 
   DocumentItem, 
   AppSettings, 
-  SystemLog 
+  SystemLog,
+  ToastNotification
 } from './types';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -23,6 +24,8 @@ import { AudioGeneratorView } from './components/AudioGeneratorView';
 import { ImageGeneratorView } from './components/ImageGeneratorView';
 import { DocumentAnalyzerView } from './components/DocumentAnalyzerView';
 import { SettingsView } from './components/SettingsView';
+import { ToastContainer } from './components/ToastContainer';
+import { CommandPalette } from './components/CommandPalette';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('chat');
@@ -31,6 +34,8 @@ export default function App() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [systemHealthy, setSystemHealthy] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
   // App Settings
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -111,24 +116,63 @@ export default function App() {
       id: 'log-1',
       level: 'info',
       module: 'KERNEL',
-      message: 'Initialisation du noyau Arthur IA 0.2 Alpha (Conçu par Arthur Delneste).',
-      timestamp: '12:20:00',
+      message: 'Initialisation du noyau Arthur IA v0.1 STABLE ALPHA (Conçu par Arthur Delneste).',
+      timestamp: '12:00:00',
     },
     {
       id: 'log-2',
       level: 'success',
       module: 'ARTHUR_CORE',
-      message: 'Architecture Arthur IA 0.2 Alpha prête (Modes Rapide, Normal, Réflexion Avancée).',
-      timestamp: '12:20:01',
+      message: 'Moteur multimodal v0.1 STABLE ALPHA opérationnel (Modes Rapide, Normal, Réflexion Avancée).',
+      timestamp: '12:00:01',
     },
     {
       id: 'log-3',
       level: 'success',
       module: 'SPEECH_TTS',
-      message: 'Synthèse vocale (TTS) avec Pause/Reprise et Waveform opérationnelle.',
-      timestamp: '12:20:02',
+      message: 'Synthèse vocale HD (TTS) avec Waveform dynamique synchronisée.',
+      timestamp: '12:00:02',
+    },
+    {
+      id: 'log-4',
+      level: 'info',
+      module: 'COMMAND_BUS',
+      message: 'Palette de raccourcis globaux initialisée (Ctrl + K).',
+      timestamp: '12:00:03',
     },
   ]);
+
+  // Toast Notification System
+  const showToast = (type: 'success' | 'error' | 'info' | 'warn', message: string, title?: string) => {
+    const newToast: ToastNotification = {
+      id: `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      type,
+      title,
+      message,
+      timestamp: Date.now(),
+    };
+    setToasts((prev) => [...prev.slice(-4), newToast]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Keyboard shortcut listener (Ctrl+K or Cmd+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+      if (e.key === 'Escape') {
+        setIsCommandPaletteOpen(false);
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Persist state to localStorage
   useEffect(() => {
@@ -173,6 +217,7 @@ export default function App() {
       module: 'CONFIG',
       message: 'Mise à jour des paramètres applicatifs.',
     });
+    showToast('success', 'Paramètres sauvegardés.', 'Configuration');
   };
 
   // Chat message send handler
@@ -208,6 +253,7 @@ export default function App() {
             .map((m) => ({ role: m.role, content: m.content })),
           mode: thinkingMode,
           webSearch,
+          verbosity: 'standard',
         }),
       });
 
@@ -266,17 +312,17 @@ export default function App() {
         module: 'CHAT_ENGINE',
         message: `Échec du chat : ${err.message}`,
       });
+
+      showToast('error', 'Pic de charge temporaire sur le modèle. Cliquez sur Réessayer.', 'Alerte Modèle');
     } finally {
       setIsChatLoading(false);
     }
   };
 
   const handleRetryMessage = async (failedMsgId?: string) => {
-    // Remove the failed error message
     if (failedMsgId) {
       setMessages((prev) => prev.filter((m) => m.id !== failedMsgId));
     }
-    // Find the last user message to resend
     const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
     if (lastUserMessage) {
       await handleSendMessage(lastUserMessage.content, true);
@@ -295,6 +341,7 @@ export default function App() {
 
   const handleDeleteTrack = (id: string) => {
     setTracks((prev) => prev.filter((t) => t.id !== id));
+    showToast('info', 'Morceau audio supprimé de la bibliothèque.', 'Audio');
   };
 
   // Image handlers
@@ -309,6 +356,7 @@ export default function App() {
 
   const handleDeleteImage = (id: string) => {
     setImages((prev) => prev.filter((i) => i.id !== id));
+    showToast('info', 'Visuel supprimé de la galerie.', 'Images');
   };
 
   // Document handlers
@@ -323,6 +371,7 @@ export default function App() {
 
   const handleDeleteDocument = (id: string) => {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
+    showToast('info', 'Document supprimé de la bibliothèque.', 'Documents');
   };
 
   const handleUpdateDocumentSummary = (id: string, summary: string) => {
@@ -396,6 +445,7 @@ export default function App() {
           onToggleWebSearch={() => setWebSearch((prev) => !prev)}
           onOpenSettings={() => setCurrentTab('settings')}
           onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           systemHealthy={systemHealthy}
         />
 
@@ -417,9 +467,13 @@ export default function App() {
                   onRetryMessage={handleRetryMessage}
                   isLoading={isChatLoading}
                   thinkingMode={thinkingMode}
-                  onClearMessages={() => setMessages([])}
+                  onClearMessages={() => {
+                    setMessages([]);
+                    showToast('info', 'Historique de discussion effacé.', 'Chat');
+                  }}
                   accentColor={settings.accentColor}
                   settings={settings}
+                  onShowToast={showToast}
                 />
               </motion.div>
             )}
@@ -438,6 +492,7 @@ export default function App() {
                   onAddTrack={handleAddTrack}
                   onDeleteTrack={handleDeleteTrack}
                   accentColor={settings.accentColor}
+                  onShowToast={showToast}
                 />
               </motion.div>
             )}
@@ -456,6 +511,7 @@ export default function App() {
                   onAddImage={handleAddImage}
                   onDeleteImage={handleDeleteImage}
                   accentColor={settings.accentColor}
+                  onShowToast={showToast}
                 />
               </motion.div>
             )}
@@ -476,6 +532,7 @@ export default function App() {
                   onUpdateDocumentSummary={handleUpdateDocumentSummary}
                   onAddQA={handleAddDocumentQA}
                   accentColor={settings.accentColor}
+                  onShowToast={showToast}
                 />
               </motion.div>
             )}
@@ -510,6 +567,42 @@ export default function App() {
           accentColor={settings.accentColor}
         />
       </div>
+
+      {/* Global Command Palette Modal (Ctrl + K) */}
+      <AnimatePresence>
+        {isCommandPaletteOpen && (
+          <CommandPalette
+            onSelectTab={(tab) => {
+              setCurrentTab(tab);
+              setIsCommandPaletteOpen(false);
+            }}
+            onSelectMode={(mode) => {
+              setThinkingMode(mode);
+              setIsCommandPaletteOpen(false);
+              showToast('info', `Mode IA basculé sur : ${mode.toUpperCase()}`, 'Mode IA');
+            }}
+            onToggleWebSearch={() => {
+              setWebSearch((prev) => !prev);
+              setIsCommandPaletteOpen(false);
+              showToast('info', `Recherche Web : ${!webSearch ? 'Activée' : 'Désactivée'}`, 'Web Google');
+            }}
+            onClearHistory={() => {
+              setMessages([]);
+              setIsCommandPaletteOpen(false);
+              showToast('info', 'Discussion réinitialisée.', 'Nettoyage');
+            }}
+            onClose={() => setIsCommandPaletteOpen(false)}
+            webSearchActive={webSearch}
+            currentMode={thinkingMode}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Global Toast Notifications Container */}
+      <ToastContainer
+        toasts={toasts}
+        onCloseToast={removeToast}
+      />
     </div>
   );
 }
