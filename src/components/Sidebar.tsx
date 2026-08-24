@@ -55,8 +55,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems: Array<{ id: TabType; label: string; icon: React.FC<{ className?: string }>; desc: string }> = [
     { id: 'chat', label: 'Arthur Chat', icon: MessageSquare, desc: 'Conversation & Réflexion' },
-    { id: 'audio', label: 'Studio Audio', icon: Music, desc: 'Générateur Musical' },
-    { id: 'images', label: 'Studio Images', icon: ImageIcon, desc: 'Génération Visuelle HD' },
+    { id: 'video', label: 'Studio Vidéo', icon: Radio, desc: 'Générateur Veo 3 & Animation' },
+    { id: 'images', label: 'Studio Images', icon: ImageIcon, desc: 'Génération & Édition Visuelle' },
+    { id: 'audio', label: 'Studio Audio', icon: Music, desc: 'Lyria 3 & Synthèse Vocale' },
     { id: 'documents', label: 'Documents IA', icon: FileText, desc: 'Synthèse & Analyse' },
     { id: 'settings', label: 'Paramètres & Logs', icon: Settings, desc: 'Système & Diagnostics' },
   ];

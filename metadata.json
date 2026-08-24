@@ -1,6 +1,6 @@
 {
   "name": "Arthur IA",
-  "description": "Assistant Arthur IA (v0.1 STABLE ALPHA, modèle Arthur IA 0.1 Stable Alpha) créé et conçu par Arthur Delneste. Intègre Chat intelligent, Text-to-Speech, Studio Audio/Musique, Studio Images HD et Analyse de Documents.",
+  "description": "Assistant Arthur IA (v0.1 STABLE ALPHA) créé et conçu par Arthur Delneste. Intègre Chat intelligent avec Grounding Maps/Web, Personas IA, Studio Vidéo Veo, Studio Audio/Musique Lyria 3, Transcription Vocale Speech-to-Text, Studio Images HD et Analyse Multimodale de Documents.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

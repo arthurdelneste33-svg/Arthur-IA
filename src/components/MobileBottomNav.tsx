@@ -1,6 +1,7 @@
 import React from 'react';
 import { 
   MessageSquare, 
+  Film,
   Music, 
   Image as ImageIcon, 
   FileText, 
@@ -22,8 +23,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 }) => {
   const navItems: Array<{ id: TabType; label: string; icon: React.FC<{ className?: string }> }> = [
     { id: 'chat', label: 'Chat', icon: MessageSquare },
-    { id: 'audio', label: 'Audio', icon: Music },
+    { id: 'video', label: 'Vidéo', icon: Film },
     { id: 'images', label: 'Images', icon: ImageIcon },
+    { id: 'audio', label: 'Audio', icon: Music },
     { id: 'documents', label: 'Docs', icon: FileText },
     { id: 'settings', label: 'Système', icon: Settings },
   ];

@@ -1,8 +1,12 @@
-export type TabType = 'chat' | 'audio' | 'images' | 'documents' | 'settings';
+export type TabType = 'chat' | 'video' | 'images' | 'audio' | 'documents' | 'settings';
 
 export type ThinkingMode = 'fast' | 'normal' | 'advanced';
 
 export type ResponseVerbosity = 'concise' | 'standard' | 'detailed';
+
+export type ChatPersonaRole = 'general' | 'coder' | 'writer' | 'analyst' | 'teacher';
+
+export type GroundingMode = 'none' | 'search' | 'maps';
 
 export interface ToastNotification {
   id: string;
@@ -10,6 +14,17 @@ export interface ToastNotification {
   title?: string;
   message: string;
   duration?: number;
+  timestamp?: number;
+}
+
+export interface MapPlaceCitation {
+  title: string;
+  url?: string;
+  snippet?: string;
+  address?: string;
+  rating?: number;
+  reviewCount?: number;
+  googleMapsUrl?: string;
 }
 
 export interface ChatMessage {
@@ -21,11 +36,26 @@ export interface ChatMessage {
   thinkingDurationMs?: number;
   modelUsed?: string;
   mode?: ThinkingMode;
+  rolePersona?: ChatPersonaRole;
   verbosity?: ResponseVerbosity;
   sources?: Array<{ title: string; url: string }>;
+  mapPlaces?: MapPlaceCitation[];
   audioBase64?: string;
   isError?: boolean;
   canRetry?: boolean;
+}
+
+export interface VideoItem {
+  id: string;
+  title: string;
+  prompt: string;
+  videoUrl: string;
+  aspectRatio: '16:9' | '9:16';
+  resolution: '720p' | '1080p';
+  sourceImage?: string;
+  createdAt: string;
+  status: 'processing' | 'completed' | 'error';
+  engine: string;
 }
 
 export interface MusicTrack {
@@ -35,6 +65,8 @@ export interface MusicTrack {
   style: string;
   genre?: string;
   duration: number;
+  isFullTrack?: boolean;
+  sourceImage?: string;
   audioUrl: string;
   audioBase64?: string;
   mimeType: string;
@@ -47,9 +79,11 @@ export interface GeneratedImage {
   id: string;
   prompt: string;
   style: string;
-  aspectRatio: '16:9' | '1:1' | '9:16' | '4:3';
+  aspectRatio: '16:9' | '1:1' | '9:16' | '4:3' | '3:4';
   quality: 'HD' | 'Ultra';
   imageUrl: string;
+  sourceImage?: string;
+  isEdit?: boolean;
   createdAt: string;
   width?: number;
   height?: number;
@@ -87,9 +121,11 @@ export interface AppSettings {
   ttsVoice: TTSVoice;
   ttsSpeed: TTSSpeed;
   defaultThinkingMode: ThinkingMode;
+  defaultPersona: ChatPersonaRole;
   responseVerbosity: ResponseVerbosity;
   autoPlayTts: boolean;
   webSearchDefault: boolean;
+  mapsGroundingDefault: boolean;
 }
 
 export interface SystemLog {
@@ -103,19 +139,12 @@ export interface SystemLog {
 export interface SystemDiagnostics {
   llmCore: 'checking' | 'operational' | 'error';
   speechEngine: 'checking' | 'operational' | 'error';
+  videoEngine: 'checking' | 'operational' | 'error';
   musicEngine: 'checking' | 'operational' | 'error';
   imageEngine: 'checking' | 'operational' | 'error';
   documentParser: 'checking' | 'operational' | 'error';
   sandboxSecurity: 'checking' | 'operational' | 'error';
   lastChecked?: string;
   latencyMs?: number;
-}
-
-export interface ToastNotification {
-  id: string;
-  type: 'success' | 'error' | 'info' | 'warn';
-  title?: string;
-  message: string;
-  timestamp?: number;
 }
 

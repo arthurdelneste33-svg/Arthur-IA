@@ -12,6 +12,8 @@ import {
   MusicTrack, 
   GeneratedImage, 
   DocumentItem, 
+  VideoItem,
+  ChatPersonaRole,
   AppSettings, 
   SystemLog,
   ToastNotification
@@ -22,6 +24,7 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { ChatView } from './components/ChatView';
 import { AudioGeneratorView } from './components/AudioGeneratorView';
 import { ImageGeneratorView } from './components/ImageGeneratorView';
+import { VideoGeneratorView } from './components/VideoGeneratorView';
 import { DocumentAnalyzerView } from './components/DocumentAnalyzerView';
 import { SettingsView } from './components/SettingsView';
 import { ToastContainer } from './components/ToastContainer';
@@ -30,6 +33,7 @@ import { CommandPalette } from './components/CommandPalette';
 export default function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('chat');
   const [thinkingMode, setThinkingMode] = useState<ThinkingMode>('normal');
+  const [activePersona, setActivePersona] = useState<ChatPersonaRole>('general');
   const [webSearch, setWebSearch] = useState(false);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [systemHealthy, setSystemHealthy] = useState(true);
@@ -100,6 +104,19 @@ export default function App() {
   // Analyzed Documents Library
   const [documents, setDocuments] = useState<DocumentItem[]>(() => {
     const saved = localStorage.getItem('arthur_documents');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // ignore
+      }
+    }
+    return [];
+  });
+
+  // Generated Videos Library (Veo 3.1)
+  const [videos, setVideos] = useState<VideoItem[]>(() => {
+    const saved = localStorage.getItem('arthur_videos');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -195,6 +212,10 @@ export default function App() {
     localStorage.setItem('arthur_documents', JSON.stringify(documents));
   }, [documents]);
 
+  useEffect(() => {
+    localStorage.setItem('arthur_videos', JSON.stringify(videos));
+  }, [videos]);
+
   const addLog = (logItem: Omit<SystemLog, 'id' | 'timestamp'>) => {
     const newLog: SystemLog = {
       id: `log-${Date.now()}-${Math.random()}`,
@@ -221,7 +242,8 @@ export default function App() {
   };
 
   // Chat message send handler
-  const handleSendMessage = async (text: string, isRetry = false) => {
+  const handleSendMessage = async (text: string, isRetry = false, persona?: ChatPersonaRole) => {
+    const effectivePersona = persona || activePersona;
     let currentMessageList = messages;
 
     if (!isRetry) {
@@ -240,7 +262,7 @@ export default function App() {
     addLog({
       level: 'info',
       module: 'CHAT_ENGINE',
-      message: `Envoi requête [Mode: ${thinkingMode.toUpperCase()}] : « ${text.slice(0, 35)}... »`,
+      message: `Envoi requête [Mode: ${thinkingMode.toUpperCase()} | Persona: ${effectivePersona}] : « ${text.slice(0, 35)}... »`,
     });
 
     try {
@@ -253,6 +275,7 @@ export default function App() {
             .map((m) => ({ role: m.role, content: m.content })),
           mode: thinkingMode,
           webSearch,
+          persona: effectivePersona,
           verbosity: 'standard',
         }),
       });
@@ -271,6 +294,7 @@ export default function App() {
         modelUsed: data.modelUsed,
         mode: thinkingMode,
         sources: data.sources,
+        mapPlaces: data.mapPlaces,
         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -357,6 +381,21 @@ export default function App() {
   const handleDeleteImage = (id: string) => {
     setImages((prev) => prev.filter((i) => i.id !== id));
     showToast('info', 'Visuel supprimé de la galerie.', 'Images');
+  };
+
+  // Video handlers
+  const handleAddVideo = (video: VideoItem) => {
+    setVideos((prev) => [video, ...prev]);
+    addLog({
+      level: 'success',
+      module: 'VIDEO_STUDIO',
+      message: `Nouvelle vidéo Veo générée : « ${video.prompt.slice(0, 30)}... » [${video.resolution}]`,
+    });
+  };
+
+  const handleDeleteVideo = (id: string) => {
+    setVideos((prev) => prev.filter((v) => v.id !== id));
+    showToast('info', 'Vidéo supprimée de la bibliothèque.', 'Vidéo');
   };
 
   // Document handlers
@@ -467,6 +506,8 @@ export default function App() {
                   onRetryMessage={handleRetryMessage}
                   isLoading={isChatLoading}
                   thinkingMode={thinkingMode}
+                  activePersona={activePersona}
+                  onChangePersona={setActivePersona}
                   onClearMessages={() => {
                     setMessages([]);
                     showToast('info', 'Historique de discussion effacé.', 'Chat');
@@ -510,6 +551,25 @@ export default function App() {
                   images={images}
                   onAddImage={handleAddImage}
                   onDeleteImage={handleDeleteImage}
+                  accentColor={settings.accentColor}
+                  onShowToast={showToast}
+                />
+              </motion.div>
+            )}
+
+            {currentTab === 'video' && (
+              <motion.div
+                key="video"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+                className="flex-1 flex flex-col h-full min-h-0 overflow-hidden"
+              >
+                <VideoGeneratorView
+                  videos={videos}
+                  onAddVideo={handleAddVideo}
+                  onDeleteVideo={handleDeleteVideo}
                   accentColor={settings.accentColor}
                   onShowToast={showToast}
                 />

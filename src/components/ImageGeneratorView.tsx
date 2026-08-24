@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Image as ImageIcon, 
   Sparkles, 
@@ -13,7 +13,10 @@ import {
   Search,
   Filter,
   Eye,
-  X
+  X,
+  Upload,
+  Layers,
+  Edit3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GeneratedImage, AccentColorType } from '../types';
@@ -38,11 +41,14 @@ export const ImageGeneratorView: React.FC<ImageGeneratorViewProps> = ({
   const [prompt, setPrompt] = useState('');
   const [selectedStyle, setSelectedStyle] = useState('Photoréaliste HD');
   const [selectedRatio, setSelectedRatio] = useState<'16:9' | '1:1' | '9:16' | '4:3'>('1:1');
+  const [sourceImage, setSourceImage] = useState<string | null>(null);
+  const [sourceImageMime, setSourceImageMime] = useState<string>('image/png');
   const [isGenerating, setIsGenerating] = useState(false);
   const [previewImage, setPreviewImage] = useState<GeneratedImage | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [compareModalOpen, setCompareModalOpen] = useState(false);
   const [compareTargetImage, setCompareTargetImage] = useState<GeneratedImage | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const aspectRatios = [
     { value: '1:1' as const, label: '1:1', desc: 'Carré (Réseaux / Profil)' },
@@ -50,6 +56,20 @@ export const ImageGeneratorView: React.FC<ImageGeneratorViewProps> = ({
     { value: '9:16' as const, label: '9:16', desc: 'Portrait / Story' },
     { value: '4:3' as const, label: '4:3', desc: 'Standard Photo' },
   ];
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64Clean = result.split(',')[1] || result;
+      setSourceImage(base64Clean);
+      setSourceImageMime(file.type);
+      onShowToast?.('info', 'Image source chargée. Vous pouvez maintenant décrire les modifications souhaitées.', 'Retouche Image');
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +88,8 @@ export const ImageGeneratorView: React.FC<ImageGeneratorViewProps> = ({
           prompt: prompt.trim(),
           style: selectedStyle,
           aspectRatio: selectedRatio,
+          sourceImage: sourceImage || undefined,
+          mimeType: sourceImageMime || undefined,
         }),
       });
 
@@ -89,7 +111,7 @@ export const ImageGeneratorView: React.FC<ImageGeneratorViewProps> = ({
       };
 
       onAddImage(newImg);
-      onShowToast?.('success', 'Visuel haute définition rendu avec succès !', 'Studio Images');
+      onShowToast?.('success', sourceImage ? 'Retouche d\'image effectuée avec succès !' : 'Visuel HD généré avec succès !', 'Studio Images');
     } catch (err: any) {
       onShowToast?.('error', err.message || 'Impossible de créer le visuel.', 'Erreur Studio');
     } finally {
@@ -177,12 +199,62 @@ export const ImageGeneratorView: React.FC<ImageGeneratorViewProps> = ({
               </button>
             </div>
 
+            {/* Optional Image Input for Retouching / Modification */}
+            <div className="space-y-1.5">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              {sourceImage ? (
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-violet-950/25 border border-violet-500/40">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={`data:${sourceImageMime};base64,${sourceImage}`}
+                      alt="Source"
+                      className="w-10 h-10 object-cover rounded-lg border border-violet-500/30"
+                    />
+                    <div>
+                      <p className="text-xs font-semibold text-violet-200 flex items-center gap-1.5">
+                        <Edit3 className="w-3.5 h-3.5 text-violet-400" />
+                        <span>Mode Retouche / Modification actif</span>
+                      </p>
+                      <p className="text-[10px] text-slate-400">Le modèle modifiera cette image selon votre prompt</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSourceImage(null)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-850 transition-colors"
+                    title="Retirer l'image"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-dashed border-slate-700/80 hover:border-violet-500/60 text-xs text-slate-400 hover:text-slate-200 transition-colors bg-slate-950/40"
+                >
+                  <Upload className="w-3.5 h-3.5 text-violet-400" />
+                  <span>Importer une image existante pour la retoucher ou la modifier</span>
+                </button>
+              )}
+            </div>
+
             <textarea
               id="image-prompt-input"
               rows={3}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Ex: Une métropole futuriste baignée par les lumières dorées du crépuscule, reflets sur l'eau, architecture organique hyper-détaillée 8K..."
+              placeholder={
+                sourceImage
+                  ? "Ex: Ajoute des néons cyberpunk en arrière-plan, change la météo en tempête de neige..."
+                  : "Ex: Une métropole futuriste baignée par les lumières dorées du crépuscule, reflets sur l'eau, architecture organique 8K..."
+              }
               className="w-full p-3 sm:p-4 rounded-xl bg-slate-950/80 border border-slate-800 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 resize-none transition-all min-h-[80px]"
             />
 

@@ -67,6 +67,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [diagnostics, setDiagnostics] = useState<SystemDiagnostics>({
     llmCore: 'operational',
     speechEngine: 'operational',
+    videoEngine: 'operational',
     musicEngine: 'operational',
     imageEngine: 'operational',
     documentParser: 'operational',
@@ -175,6 +176,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setDiagnostics({
       llmCore: 'checking',
       speechEngine: 'checking',
+      videoEngine: 'checking',
       musicEngine: 'checking',
       imageEngine: 'checking',
       documentParser: 'checking',
@@ -199,6 +201,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setDiagnostics({
           llmCore: 'operational',
           speechEngine: 'operational',
+          videoEngine: 'operational',
           musicEngine: 'operational',
           imageEngine: 'operational',
           documentParser: 'operational',
@@ -211,7 +214,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         onAddLog({
           level: 'success',
           module: 'DIAGNOSTIC',
-          message: `Audit terminé avec succès : 6/6 modules opérationnels (${Math.max(24, latency)}ms).`,
+          message: `Audit terminé avec succès : 7/7 modules opérationnels (${Math.max(24, latency)}ms).`,
         });
       }, 900);
     } catch (e: any) {
@@ -220,6 +223,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setDiagnostics({
           llmCore: 'operational',
           speechEngine: 'operational',
+          videoEngine: 'operational',
           musicEngine: 'operational',
           imageEngine: 'operational',
           documentParser: 'operational',
@@ -559,6 +563,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             {[
               { key: 'llmCore', name: 'Moteur LLM (Gemini 3.7+)', desc: 'Génération & Réflexion Multi-Niveaux' },
               { key: 'speechEngine', name: 'Synthèse Vocale (TTS)', desc: 'Audio Multimodal & WebSpeech' },
+              { key: 'videoEngine', name: 'Studio Vidéo (Veo 3.1)', desc: 'Génération Cinématique 1080p' },
               { key: 'musicEngine', name: 'Studio Audio & Lyria', desc: 'Composition Harmonique Procédurale' },
               { key: 'imageEngine', name: 'Moteur Graphique Imagen', desc: 'Rendu Visuel HD & Styles Multiples' },
               { key: 'documentParser', name: 'Parser Multimodal Documents', desc: 'Extraction PDF, DOCX, TXT, CSV' },

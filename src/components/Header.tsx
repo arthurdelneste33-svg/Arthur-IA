@@ -4,6 +4,7 @@ import {
   Sparkles, 
   Brain, 
   Globe, 
+  MapPin,
   Menu,
   CheckCircle2,
   Command,
@@ -19,6 +20,8 @@ interface HeaderProps {
   accentColor: AccentColorType;
   webSearch: boolean;
   onToggleWebSearch: () => void;
+  useMaps?: boolean;
+  onToggleMaps?: () => void;
   onOpenSettings: () => void;
   onToggleMobileMenu: () => void;
   systemHealthy: boolean;
@@ -32,6 +35,8 @@ export const Header: React.FC<HeaderProps> = ({
   accentColor,
   webSearch,
   onToggleWebSearch,
+  useMaps = false,
+  onToggleMaps,
   onOpenSettings,
   onToggleMobileMenu,
   systemHealthy,
@@ -42,17 +47,22 @@ export const Header: React.FC<HeaderProps> = ({
       case 'chat':
         return {
           title: 'Arthur Chat',
-          subtitle: 'Assistant conversationnel & réflexion multi-niveaux',
+          subtitle: 'Assistant conversationnel & réflexion cognitive multi-niveaux',
+        };
+      case 'video':
+        return {
+          title: 'Studio Vidéo Veo 3',
+          subtitle: 'Génération de vidéos cinématiques 16:9 / 9:16 & animation de photos',
         };
       case 'audio':
         return {
-          title: 'Studio Musical',
-          subtitle: 'Génération de compositions & nappes sonores',
+          title: 'Studio Audio & Voix',
+          subtitle: 'Compositions musicales Lyria 3 & transcription audio',
         };
       case 'images':
         return {
           title: 'Studio Images HD',
-          subtitle: 'Création visuelle haute résolution & styles',
+          subtitle: 'Création visuelle, styles artistiques & retouche d\'images',
         };
       case 'documents':
         return {
@@ -132,22 +142,43 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        {/* Google Search Toggle */}
+        {/* Google Grounding Toggles (Search & Maps) */}
         {(currentTab === 'chat' || currentTab === 'documents') && (
-          <motion.button
-            id="toggle-web-search"
-            whileTap={{ scale: 0.95 }}
-            onClick={onToggleWebSearch}
-            title={webSearch ? 'Recherche Web Google active' : 'Activer la recherche Web en direct'}
-            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 md:px-3 py-1.5 rounded-xl text-xs font-medium transition-all border shrink-0 ${
-              webSearch
-                ? 'bg-blue-600/20 text-blue-400 border-blue-500/50 shadow-sm shadow-blue-950/30'
-                : 'bg-slate-900/90 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-850'
-            }`}
-          >
-            <Globe className={`w-3.5 h-3.5 shrink-0 ${webSearch ? 'text-blue-400 animate-pulse' : 'text-slate-400'}`} />
-            <span className="hidden sm:inline">Web Google</span>
-          </motion.button>
+          <div className="flex items-center gap-1.5">
+            {/* Web Search Grounding */}
+            <motion.button
+              id="toggle-web-search"
+              whileTap={{ scale: 0.95 }}
+              onClick={onToggleWebSearch}
+              title={webSearch ? 'Recherche Web Google active' : 'Activer la recherche Web en direct'}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 md:px-3 py-1.5 rounded-xl text-xs font-medium transition-all border shrink-0 ${
+                webSearch
+                  ? 'bg-blue-600/20 text-blue-400 border-blue-500/50 shadow-sm shadow-blue-950/30'
+                  : 'bg-slate-900/90 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-850'
+              }`}
+            >
+              <Globe className={`w-3.5 h-3.5 shrink-0 ${webSearch ? 'text-blue-400 animate-pulse' : 'text-slate-400'}`} />
+              <span className="hidden sm:inline">Google Web</span>
+            </motion.button>
+
+            {/* Google Maps Grounding */}
+            {onToggleMaps && (
+              <motion.button
+                id="toggle-maps-grounding"
+                whileTap={{ scale: 0.95 }}
+                onClick={onToggleMaps}
+                title={useMaps ? 'Ancrage Google Maps actif' : 'Activer la recherche de lieux Google Maps'}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 md:px-3 py-1.5 rounded-xl text-xs font-medium transition-all border shrink-0 ${
+                  useMaps
+                    ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/50 shadow-sm shadow-emerald-950/30'
+                    : 'bg-slate-900/90 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-850'
+                }`}
+              >
+                <MapPin className={`w-3.5 h-3.5 shrink-0 ${useMaps ? 'text-emerald-400 animate-pulse' : 'text-slate-400'}`} />
+                <span className="hidden sm:inline">Maps</span>
+              </motion.button>
+            )}
+          </div>
         )}
 
         {/* 3 Reflection Modes Segmented Control */}

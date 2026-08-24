@@ -1,3 +1,19 @@
+export const CHAT_PERSONAS = [
+  { id: 'general', name: 'Arthur Général', desc: 'Polyvalent, équilibré et chaleureux', icon: 'Bot' },
+  { id: 'coder', name: 'Architecte Dev', desc: 'Code TypeScript propre, refactoring & architecture', icon: 'Code' },
+  { id: 'writer', name: 'Plume & Créativité', desc: 'Récits, storytelling et style littéraire raffiné', icon: 'Feather' },
+  { id: 'analyst', name: 'Consultant Stratège', desc: 'Analyses de marché, KPIs et plans d’action', icon: 'BarChart3' },
+  { id: 'teacher', name: 'Pédagogue & Prof', desc: 'Vulgarisation claire, exemples simples et méthodiques', icon: 'GraduationCap' },
+];
+
+export const VIDEO_PROMPTS = [
+  "Survol cinématographique en drone au-dessus d'une cité futuriste illuminée sous la brume au coucher du soleil",
+  "Un astronaute marchant au ralenti sur une plage d'obsidienne noire avec une mer de néons iridescents",
+  "Zoom avant fluide dans une fleur bioluminescente s'ouvrant dans une forêt tropicale nocturne",
+  "Une voiture vintage filant à vive allure sur une route côtière sous un ciel étoilé aux aurores boréales",
+  "Animation macro dynamique de particules d'or et de cristaux flottant en apesanteur avec éclairage studio",
+];
+
 export const CHAT_SUGGESTIONS = [
   {
     icon: "Brain",
