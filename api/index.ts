@@ -33,8 +33,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Aucun texte fourni dans la requête.' });
     }
 
-    // Utilisation directe du modèle demandé
-    const googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    // Utilisation exacte du modèle gemini-3.6-flash requis par l'API
+    const googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
 
     const response = await fetch(googleUrl, {
       method: 'POST',
