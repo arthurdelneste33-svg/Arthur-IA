@@ -287,7 +287,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
     const dateStr = new Date().toLocaleString('fr-FR');
 
     if (format === 'markdown') {
-      content += `# Discussion avec Arthur IA (Modèle : Arthur IA 0.2 Alpha • Créé par Arthur Delneste)\n`;
+      content += `# Discussion avec Arthur IA (Modèle : Arthur IA 0.1 Stable Alpha • Conçu par Arthur Delneste)\n`;
       content += `*Date d'exportation : ${dateStr}*\n\n---\n\n`;
 
       messages.forEach((msg) => {
@@ -309,7 +309,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
       });
     } else {
       content += `=====================================================\n`;
-      content += `   HISTORIQUE DE DISCUSSION ARTHUR IA (v0.2 BETA)\n`;
+      content += `   HISTORIQUE DE DISCUSSION ARTHUR IA (v0.1 STABLE ALPHA)\n`;
+      content += `   Conçu par Arthur Delneste\n`;
       content += `   Date d'exportation : ${dateStr}\n`;
       content += `=====================================================\n\n`;
 

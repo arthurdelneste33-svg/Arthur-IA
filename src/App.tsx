@@ -192,29 +192,54 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Persist state to localStorage
+  // Persist state to localStorage with try-catch guards against quota limits
   useEffect(() => {
-    localStorage.setItem('arthur_settings', JSON.stringify(settings));
+    try {
+      localStorage.setItem('arthur_settings', JSON.stringify(settings));
+    } catch {
+      // ignore
+    }
   }, [settings]);
 
   useEffect(() => {
-    localStorage.setItem('arthur_messages', JSON.stringify(messages));
+    try {
+      // Keep recent 60 messages in localStorage to prevent 5MB storage quota limits
+      localStorage.setItem('arthur_messages', JSON.stringify(messages.slice(-60)));
+    } catch {
+      // ignore
+    }
   }, [messages]);
 
   useEffect(() => {
-    localStorage.setItem('arthur_tracks', JSON.stringify(tracks));
+    try {
+      localStorage.setItem('arthur_tracks', JSON.stringify(tracks.slice(-25)));
+    } catch {
+      // ignore
+    }
   }, [tracks]);
 
   useEffect(() => {
-    localStorage.setItem('arthur_images', JSON.stringify(images));
+    try {
+      localStorage.setItem('arthur_images', JSON.stringify(images.slice(-25)));
+    } catch {
+      // ignore
+    }
   }, [images]);
 
   useEffect(() => {
-    localStorage.setItem('arthur_documents', JSON.stringify(documents));
+    try {
+      localStorage.setItem('arthur_documents', JSON.stringify(documents.slice(-20)));
+    } catch {
+      // ignore
+    }
   }, [documents]);
 
   useEffect(() => {
-    localStorage.setItem('arthur_videos', JSON.stringify(videos));
+    try {
+      localStorage.setItem('arthur_videos', JSON.stringify(videos.slice(-15)));
+    } catch {
+      // ignore
+    }
   }, [videos]);
 
   const addLog = (logItem: Omit<SystemLog, 'id' | 'timestamp'>) => {
