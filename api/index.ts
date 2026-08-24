@@ -4,21 +4,20 @@ import { GoogleGenAI } from '@google/genai';
 const app = express();
 app.use(express.json());
 
-// Initialisation du client Google Gen AI
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message } = req.body;
+    // Récupération souple du message selon le nom du champ envoyé par le frontend
+    const userMessage = req.body.message || req.body.prompt || req.body.contents || req.body.text;
 
-    if (!message) {
-      return res.status(400).json({ error: 'Le message est requis.' });
+    if (!userMessage) {
+      return res.status(400).json({ error: 'Aucun contenu texte détecté dans la requête.' });
     }
 
-    // Utilisation d'un modèle officiel valide
     const response = await ai.models.generateContent({
       model: 'gemini-1.5-flash',
-      contents: message,
+      contents: userMessage,
     });
 
     return res.json({ text: response.text });
