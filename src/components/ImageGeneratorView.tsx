@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { GeneratedImage, AccentColorType } from '../types';
 import { IMAGE_STYLES, SAMPLE_IMAGE_PROMPTS } from '../data/samplePrompts';
 import { ImageCompareModal } from './ImageCompareModal';
+import { safeFetchJson } from '../utils/apiHelper';
 
 interface ImageGeneratorViewProps {
   images: GeneratedImage[];
@@ -81,7 +82,7 @@ export const ImageGeneratorView: React.FC<ImageGeneratorViewProps> = ({
 
     setIsGenerating(true);
     try {
-      const res = await fetch('/api/generate-image', {
+      const data = await safeFetchJson<{ imageUrl: string }>('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -92,13 +93,6 @@ export const ImageGeneratorView: React.FC<ImageGeneratorViewProps> = ({
           mimeType: sourceImageMime || undefined,
         }),
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Erreur lors de la génération de l\'image');
-      }
-
-      const data = await res.json();
 
       const newImg: GeneratedImage = {
         id: `img-${Date.now()}`,

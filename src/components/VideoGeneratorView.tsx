@@ -21,6 +21,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoItem, AccentColorType } from '../types';
 import { VIDEO_PROMPTS } from '../data/samplePrompts';
+import { safeFetchJson } from '../utils/apiHelper';
 
 interface VideoGeneratorViewProps {
   videos: VideoItem[];
@@ -81,7 +82,11 @@ export const VideoGeneratorView: React.FC<VideoGeneratorViewProps> = ({
 
     try {
       setGenerationStep('Envoi de la requête de synthèse cinématique...');
-      const res = await fetch('/api/generate-video', {
+      const data = await safeFetchJson<{
+        simulatedVideoUrl?: string;
+        operationName?: string;
+        format?: string;
+      }>('/api/generate-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -93,12 +98,6 @@ export const VideoGeneratorView: React.FC<VideoGeneratorViewProps> = ({
         }),
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Erreur lors de la génération vidéo');
-      }
-
-      const data = await res.json();
       let videoUrl = data.simulatedVideoUrl || '';
 
       if (!videoUrl && data.operationName) {
@@ -113,12 +112,11 @@ export const VideoGeneratorView: React.FC<VideoGeneratorViewProps> = ({
           setGenerationStep(`Rendu cinématique en cours (passe ${attempts}/15)...`);
           
           try {
-            const statusRes = await fetch('/api/video-status', {
+            const statusData = await safeFetchJson<{ done: boolean }>('/api/video-status', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ operationName: data.operationName }),
             });
-            const statusData = await statusRes.json();
             if (statusData.done) {
               done = true;
               videoUrl = `/api/video-download?op=${encodeURIComponent(data.operationName)}`;

@@ -29,6 +29,7 @@ import { DocumentAnalyzerView } from './components/DocumentAnalyzerView';
 import { SettingsView } from './components/SettingsView';
 import { ToastContainer } from './components/ToastContainer';
 import { CommandPalette } from './components/CommandPalette';
+import { safeFetchJson } from './utils/apiHelper';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('chat');
@@ -266,7 +267,13 @@ export default function App() {
     });
 
     try {
-      const res = await fetch('/api/chat', {
+      const data = await safeFetchJson<{
+        text: string;
+        thinking?: string;
+        modelUsed?: string;
+        sources?: any[];
+        mapPlaces?: any[];
+      }>('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -279,12 +286,6 @@ export default function App() {
           verbosity: 'standard',
         }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Erreur lors de la conversation');
-      }
 
       const aiMsg: ChatMessage = {
         id: `msg-${Date.now()}-ai`,
@@ -337,7 +338,7 @@ export default function App() {
         message: `Échec du chat : ${err.message}`,
       });
 
-      showToast('error', 'Pic de charge temporaire sur le modèle. Cliquez sur Réessayer.', 'Alerte Modèle');
+      showToast('error', errorText.length > 90 ? `${errorText.slice(0, 85)}...` : errorText, 'Alerte Modèle');
     } finally {
       setIsChatLoading(false);
     }

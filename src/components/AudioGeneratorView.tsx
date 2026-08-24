@@ -29,6 +29,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MusicTrack, AccentColorType } from '../types';
 import { MUSIC_STYLES, SAMPLE_MUSIC_PROMPTS } from '../data/samplePrompts';
 import { AudioManager } from '../utils/audioPlayer';
+import { safeFetchJson } from '../utils/apiHelper';
 
 interface AudioGeneratorViewProps {
   tracks: MusicTrack[];
@@ -100,7 +101,14 @@ export const AudioGeneratorView: React.FC<AudioGeneratorViewProps> = ({
 
     setIsGenerating(true);
     try {
-      const res = await fetch('/api/music', {
+      const data = await safeFetchJson<{
+        duration?: number;
+        audioUrl?: string;
+        audioBase64?: string;
+        mimeType?: string;
+        engine?: string;
+        lyrics?: string;
+      }>('/api/music', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -112,13 +120,6 @@ export const AudioGeneratorView: React.FC<AudioGeneratorViewProps> = ({
           mimeType: sourceImageMime || undefined,
         }),
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Erreur de génération musicale');
-      }
-
-      const data = await res.json();
 
       const newTrack: MusicTrack = {
         id: `track-${Date.now()}`,
@@ -224,29 +225,28 @@ export const AudioGeneratorView: React.FC<AudioGeneratorViewProps> = ({
     try {
       const reader = new FileReader();
       reader.onload = async () => {
-        const base64Audio = (reader.result as string).split(',')[1];
-        const res = await fetch('/api/transcribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            audioBase64: base64Audio,
-            mimeType: blobOrFile.type || 'audio/webm',
-          }),
-        });
+        try {
+          const base64Audio = (reader.result as string).split(',')[1];
+          const data = await safeFetchJson<{ transcription: string }>('/api/transcribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              audioBase64: base64Audio,
+              mimeType: blobOrFile.type || 'audio/webm',
+            }),
+          });
 
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || 'Erreur lors de la transcription');
+          setTranscribedText(data.transcription);
+          onShowToast?.('success', 'Transcription audio complétée par Gemini 3.7 !', 'Transcription');
+        } catch (innerErr: any) {
+          onShowToast?.('error', innerErr.message || 'Impossible de transcrire cet audio.', 'Erreur STT');
+        } finally {
+          setIsTranscribing(false);
         }
-
-        const data = await res.json();
-        setTranscribedText(data.transcription);
-        onShowToast?.('success', 'Transcription audio complétée par Gemini 3.7 !', 'Transcription');
       };
       reader.readAsDataURL(blobOrFile);
     } catch (err: any) {
-      onShowToast?.('error', err.message || 'Impossible de transcrire cet audio.', 'Erreur STT');
-    } finally {
+      onShowToast?.('error', err.message || 'Impossible de lire le fichier audio.', 'Erreur STT');
       setIsTranscribing(false);
     }
   };

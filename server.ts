@@ -9,14 +9,30 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
+// Enable CORS for external domains (e.g. Vercel, custom domains)
+app.use((req: Request, res: Response, next: any) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  next();
+});
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Lazy initialization of Gemini SDK
 let aiClient: GoogleGenAI | null = null;
 function getAIClient(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === "") {
+    throw new Error(
+      "Clé d'API GEMINI_API_KEY non configurée dans les variables d'environnement. Si vous utilisez Vercel, ajoutez la variable GEMINI_API_KEY dans vos paramètres de projet (Project Settings > Environment Variables) sur vercel.com puis redéployez."
+    );
+  }
   if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY || "";
     aiClient = new GoogleGenAI({
       apiKey,
       httpOptions: {
@@ -909,4 +925,9 @@ async function startServer() {
   });
 }
 
-startServer();
+// Only listen when running directly as standalone server (not in Vercel Serverless Function)
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;

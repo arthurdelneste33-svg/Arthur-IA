@@ -27,6 +27,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { DocumentItem, AccentColorType } from '../types';
+import { safeFetchJson } from '../utils/apiHelper';
 
 interface DocumentAnalyzerViewProps {
   documents: DocumentItem[];
@@ -179,7 +180,7 @@ export const DocumentAnalyzerView: React.FC<DocumentAnalyzerViewProps> = ({
   const triggerAnalysis = async (doc: DocumentItem, task: 'summary' | 'extract' | 'executive-sheet') => {
     setIsAnalyzing(true);
     try {
-      const res = await fetch('/api/analyze-document', {
+      const data = await safeFetchJson<{ analysis: string }>('/api/analyze-document', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -191,14 +192,11 @@ export const DocumentAnalyzerView: React.FC<DocumentAnalyzerViewProps> = ({
         }),
       });
 
-      if (!res.ok) throw new Error('Échec de l’analyse');
-
-      const data = await res.json();
       onUpdateDocumentSummary(doc.id, data.analysis);
       onShowToast?.('success', `Synthèse générée pour « ${doc.name} ».`, 'Analyse Terminée');
     } catch (err: any) {
       console.error('Analysis error:', err);
-      onShowToast?.('error', 'Erreur lors de l’analyse du document.', 'Erreur Analyse');
+      onShowToast?.('error', err.message || 'Erreur lors de l’analyse du document.', 'Erreur Analyse');
     } finally {
       setIsAnalyzing(false);
     }
@@ -221,7 +219,7 @@ export const DocumentAnalyzerView: React.FC<DocumentAnalyzerViewProps> = ({
     setIsAnsweringQA(true);
 
     try {
-      const res = await fetch('/api/analyze-document', {
+      const data = await safeFetchJson<{ analysis: string }>('/api/analyze-document', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -234,9 +232,6 @@ export const DocumentAnalyzerView: React.FC<DocumentAnalyzerViewProps> = ({
         }),
       });
 
-      if (!res.ok) throw new Error('Échec de la réponse');
-
-      const data = await res.json();
       onAddQA(activeDoc.id, {
         question,
         answer: data.analysis || 'Pas de réponse disponible.',
@@ -244,7 +239,7 @@ export const DocumentAnalyzerView: React.FC<DocumentAnalyzerViewProps> = ({
       onShowToast?.('info', 'Réponse générée à votre question.', 'Q&A Document');
     } catch (err: any) {
       console.error('QA Error:', err);
-      onShowToast?.('error', 'Erreur lors de la réponse à la question.', 'Erreur Q&A');
+      onShowToast?.('error', err.message || 'Erreur lors de la réponse à la question.', 'Erreur Q&A');
     } finally {
       setIsAnsweringQA(false);
     }

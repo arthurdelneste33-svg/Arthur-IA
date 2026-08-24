@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
+import { safeFetchJson } from '../utils/apiHelper';
 import { ChatMessage, ThinkingMode, AccentColorType, AppSettings, ChatPersonaRole } from '../types';
 import { CHAT_SUGGESTIONS, CHAT_PERSONAS } from '../data/samplePrompts';
 import { AudioManager, AudioPlaybackState } from '../utils/audioPlayer';
@@ -235,7 +236,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
     setIsTTSLoading(message.id);
 
     try {
-      const res = await fetch('/api/tts', {
+      const data = await safeFetchJson<{
+        audioBase64?: string;
+        mimeType?: string;
+        textToSpeak?: string;
+      }>('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -245,7 +250,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
         }),
       });
 
-      const data = await res.json();
       setIsTTSLoading(null);
 
       if (data.audioBase64) {

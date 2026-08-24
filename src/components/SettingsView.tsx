@@ -36,6 +36,7 @@ import {
   SystemDiagnostics 
 } from '../types';
 import { AudioManager } from '../utils/audioPlayer';
+import { safeFetchJson } from '../utils/apiHelper';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -190,8 +191,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
     // Step 2: Health fetch
     try {
-      const res = await fetch('/api/health');
-      await res.json();
+      await safeFetchJson('/api/health');
       setTimeout(() => setDiagnosticProgress(70), 500);
 
       const latency = Math.round(performance.now() - startTime);
