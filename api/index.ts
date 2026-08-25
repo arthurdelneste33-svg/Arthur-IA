@@ -1,18 +1,6 @@
-interface CustomVercelRequest {
-  method?: string;
-  body?: any;
-  headers?: Record<string, string>;
-}
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-interface CustomVercelResponse {
-  setHeader: (key: string, value: string) => void;
-  status: (code: number) => {
-    json: (body: any) => void;
-    end: () => void;
-  };
-}
-
-export default async function handler(req: CustomVercelRequest, res: CustomVercelResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -72,5 +60,4 @@ export default async function handler(req: CustomVercelRequest, res: CustomVerce
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Erreur serveur interne' });
   }
-                                   }
-  
+}
