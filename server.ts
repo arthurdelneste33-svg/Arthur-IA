@@ -175,8 +175,16 @@ async function generateWithRetryAndFallback(
       try {
         const modelConfig = { ...config };
 
-        // Only gemini-3 series models support thinkingConfig
-        if (!currentModel.startsWith("gemini-3") && modelConfig.thinkingConfig) {
+        // Adjust thinkingConfig based on model capabilities
+        if (currentModel === "gemini-3.7-flash") {
+          if (modelConfig.thinkingConfig?.thinkingLevel === ThinkingLevel.MINIMAL) {
+            modelConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+          }
+        } else if (currentModel === "gemini-3.1-pro-preview") {
+          modelConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
+        } else if (currentModel === "gemini-3.1-flash-lite") {
+          // Supports MINIMAL, LOW, HIGH
+        } else {
           delete modelConfig.thinkingConfig;
         }
 
@@ -290,8 +298,9 @@ ${rolePrompt}
 ${verbosityInstruction}
 Réponds immédiatement en Markdown sans préambule inutile.
 ${customInstruction ? `Directive: ${customInstruction}` : ""}`;
-      modelName = "gemini-2.5-flash";
-      fallbackCandidates = ["gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
+      modelName = "gemini-3.1-flash-lite";
+      thinkingLevel = ThinkingLevel.MINIMAL;
+      fallbackCandidates = ["gemini-flash-latest", "gemini-3.7-flash"];
     } else if (mode === "advanced") {
       baseSystemPrompt = `Tu es « Arthur IA », un système d'intelligence artificielle souverain et de rang exécutif supérieur, conçu et développé par Arthur Delneste.
 Ton architecture logicielle et ton moteur d'inférence correspondent au modèle « Arthur IA 0.1 Stable Alpha », doté d'une matrice cognitive avancée, d'une capacité d'analyse multimodale exhaustive et d'une rigueur épistémique absolue.
@@ -314,9 +323,9 @@ Referme impérativement avec </thinking> avant d'engager la rédaction de ta ré
 ${customInstruction ? `Directive spécifique prioritaire : ${customInstruction}` : ""}`;
       modelName = "gemini-3.7-flash";
       thinkingLevel = ThinkingLevel.HIGH;
-      fallbackCandidates = ["gemini-2.5-flash", "gemini-flash-latest"];
+      fallbackCandidates = ["gemini-flash-latest", "gemini-3.1-flash-lite"];
     } else {
-      // Normal mode: High intelligence, ultra-fast response (<200ms)
+      // Normal mode: High intelligence, ultra-fast response with ThinkingLevel.LOW
       baseSystemPrompt = `Tu es « Arthur IA », intelligence artificielle de rang supérieur, conçue et développée par Arthur Delneste.
 - Créateur et concepteur unique: Arthur Delneste.
 - Modèle: Arthur IA 0.1 Stable Alpha.
@@ -325,8 +334,9 @@ ${rolePrompt}
 ${verbosityInstruction}
 Réponds directement et avec une grande précision à la question de l'utilisateur.
 ${customInstruction ? `Directive spécifique: ${customInstruction}` : ""}`;
-      modelName = "gemini-2.5-flash";
-      fallbackCandidates = ["gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
+      modelName = "gemini-3.7-flash";
+      thinkingLevel = ThinkingLevel.LOW;
+      fallbackCandidates = ["gemini-flash-latest", "gemini-3.1-flash-lite"];
     }
 
     let thinkingProcess = "";
@@ -527,7 +537,8 @@ ${rolePrompt}
 ${verbosityInstruction}
 Réponds immédiatement en Markdown sans préambule inutile.
 ${customInstruction ? `Directive: ${customInstruction}` : ""}`;
-      modelName = "gemini-2.5-flash";
+      modelName = "gemini-3.1-flash-lite";
+      thinkingLevel = ThinkingLevel.MINIMAL;
     } else if (mode === "advanced") {
       baseSystemPrompt = `Tu es « Arthur IA », un système d'intelligence artificielle souverain et de rang exécutif supérieur, conçu et développé par Arthur Delneste.
 Ton architecture logicielle et ton moteur d'inférence correspondent au modèle « Arthur IA 0.1 Stable Alpha », doté d'une matrice cognitive avancée, d'une capacité d'analyse multimodale exhaustive et d'une rigueur épistémique absolue.
@@ -564,7 +575,8 @@ ${rolePrompt}
 ${verbosityInstruction}
 Réponds directement et avec une grande précision à la question de l'utilisateur.
 ${customInstruction ? `Directive spécifique: ${customInstruction}` : ""}`;
-      modelName = "gemini-2.5-flash";
+      modelName = "gemini-3.7-flash";
+      thinkingLevel = ThinkingLevel.LOW;
     }
 
     const formattedContents = messages.map((m: any) => {
@@ -622,7 +634,7 @@ ${customInstruction ? `Directive spécifique: ${customInstruction}` : ""}`;
 
     let streamResponse: any = null;
     let actualModel = modelName;
-    const candidates = [modelName, "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
+    const candidates = [modelName, "gemini-flash-latest", "gemini-3.7-flash", "gemini-3.1-flash-lite"];
     const uniqueCandidates = [...new Set(candidates)];
 
     for (const cand of uniqueCandidates) {
@@ -632,8 +644,10 @@ ${customInstruction ? `Directive spécifique: ${customInstruction}` : ""}`;
           if (mode === "advanced") {
             streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
           } else {
-            streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
+            streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
           }
+        } else if (cand === "gemini-3.1-flash-lite") {
+          streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
         } else if (cand === "gemini-3.1-pro-preview") {
           streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
         } else {

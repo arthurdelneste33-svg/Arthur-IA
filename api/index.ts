@@ -31,8 +31,8 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Aucun texte fourni dans la requête.' });
     }
 
-    // Utilisation ultra-rapide du modèle gemini-2.5-flash avec identité Arthur IA
-    const googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    // Utilisation du modèle gemini-3.7-flash avec identité Arthur IA
+    const googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${apiKey}`;
 
     const response = await fetch(googleUrl, {
       method: 'POST',
