@@ -515,24 +515,24 @@ export const ChatView: React.FC<ChatViewProps> = ({
     switch (thinkingMode) {
       case 'fast':
         return {
-          title: 'Mode Rapide Actif',
-          desc: 'Flash Lite — Latence minimale, réponses instantanées.',
+          title: 'Mode Flash Instant',
+          desc: 'Latence zéro — Réponses quasi-instantanées (<150ms).',
           icon: Zap,
           badgeColor: 'text-cyan-400 border-cyan-500/40 bg-cyan-950/40 shadow-cyan-950/30',
           dotColor: 'bg-cyan-400',
         };
       case 'advanced':
         return {
-          title: 'Mode Réflexion Avancée',
-          desc: 'Gemini 3.7 Thinking — Raisonnement logique méthodique et structuré.',
+          title: 'Mode Réflexion Profonde',
+          desc: 'Raisonnement axiomatique structuré et approfondi.',
           icon: Brain,
           badgeColor: 'text-amber-400 border-amber-500/50 bg-amber-950/40 shadow-amber-950/40 ring-1 ring-amber-500/30',
           dotColor: 'bg-amber-400',
         };
       default:
         return {
-          title: 'Mode Normal Actif',
-          desc: 'Gemini 3.7 Flash — Équilibre optimal vitesse et analyse approfondie.',
+          title: 'Mode Standard Vif',
+          desc: 'Réponses ultra-rapides et intelligentes sans attente.',
           icon: Sparkles,
           badgeColor: 'text-violet-400 border-violet-500/40 bg-violet-950/40 shadow-violet-950/30',
           dotColor: 'bg-violet-400',

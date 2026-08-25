@@ -1,6 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -33,13 +31,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Aucun texte fourni dans la requête.' });
     }
 
-    // Utilisation exacte du modèle gemini-3.6-flash requis par l'API
-    const googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+    // Utilisation ultra-rapide du modèle gemini-2.5-flash avec identité Arthur IA
+    const googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const response = await fetch(googleUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        system_instruction: {
+          parts: [{ text: "Tu es « Arthur IA », conçu et développé par Arthur Delneste. Réponds de façon ultra-rapide, claire, nette et précise en Markdown." }]
+        },
         contents: [
           {
             parts: [{ text: userText }]

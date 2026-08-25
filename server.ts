@@ -281,7 +281,19 @@ app.post(["/api/chat", "/chat"], async (req: Request, res: Response) => {
       verbosityInstruction = "IMPORTANT: Fournis une réponse très approfondie, exhaustive, structurée avec des exemples concrets et des explications détaillées.";
     }
 
-    const baseSystemPrompt = `Tu es « Arthur IA », un système d'intelligence artificielle souverain et de rang exécutif supérieur, conçu et développé par Arthur Delneste.
+    let baseSystemPrompt = "";
+    if (mode === "fast") {
+      baseSystemPrompt = `Tu es « Arthur IA » (modèle Arthur IA 0.1 Flash Instant), créé et développé par Arthur Delneste.
+- Créateur unique: Arthur Delneste.
+- Style: Réponse ultra-rapide, directe, concise, nette, rigoureuse et percutante.
+${rolePrompt}
+${verbosityInstruction}
+Réponds immédiatement en Markdown sans préambule inutile.
+${customInstruction ? `Directive: ${customInstruction}` : ""}`;
+      modelName = "gemini-2.5-flash";
+      fallbackCandidates = ["gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
+    } else if (mode === "advanced") {
+      baseSystemPrompt = `Tu es « Arthur IA », un système d'intelligence artificielle souverain et de rang exécutif supérieur, conçu et développé par Arthur Delneste.
 Ton architecture logicielle et ton moteur d'inférence correspondent au modèle « Arthur IA 0.1 Stable Alpha », doté d'une matrice cognitive avancée, d'une capacité d'analyse multimodale exhaustive et d'une rigueur épistémique absolue.
 
 IDENTITÉ, CRÉATEUR & ARCHITECTURE (RÈGLE FONDAMENTALE ABSOLUE) :
@@ -292,37 +304,33 @@ IDENTITÉ, CRÉATEUR & ARCHITECTURE (RÈGLE FONDAMENTALE ABSOLUE) :
 ${rolePrompt}
 
 POSTURE ÉTHIQUE, INTELLECTUELLE & RANG EXÉCUTIF :
-- Adopte un ton éminemment sérieux, sobre, méthodique, analytique et exempt de toute superficialité ou familiarité.
-- Bannis tout ton promotionnel, puéril ou bavard. Sois d'une précision chirurgicale, mesuré et factuel.
-- Privilégie une structure analytique rigoureuse : contextualisation critique, démonstration logique formelle, décomposition des contraintes et synthèse exécutive décisionnelle.
-- Utilise un formatage Markdown impeccable : hiérarchie stricte des titres (##, ###), tableaux comparatifs structurés, équations ou blocs de code typés et citations méthodologiques.
+- Adopte un ton sérieux, sobre, méthodique, analytique et exempt de toute superficialité.
+- Privilégie une structure analytique rigoureuse avec un formatage Markdown impeccable.
 ${verbosityInstruction}
 
 PROTOCOLE DE RAISONNEMENT INTÉGRAL EN PROFONDEUR :
-Pour toute requête, commence TOUJOURS ta réponse par la balise <thinking>...</thinking> dans laquelle tu consignes ton processus d'analyse réflexive approfondie. Ce raisonnement doit être dense, substantiel et structuré selon les axes suivants :
-[1. Cadrage Épistémique & Décomposition Axiomatique] : Explicitation des prémisses, identification des variables clés, des contraintes sous-jacentes et des objectifs finaux.
-[2. Exploration Hypothético-Déductive & Examen Critique] : Confrontation des approches possibles, analyse comparative, pesée des cas limites et des contre-arguments potentiels.
-[3. Vérification Formelle & Contrôle de Cohérence] : Audit de non-contradiction, exactitude des données, validation logique formelle et suppression des biais.
-[4. Stratégie de Formulation & Synthèse Exécutive] : Architecture de la restitution finale pour une clarté et un impact décisionnel optimaux.
+Pour toute requête, commence TOUJOURS ta réponse par la balise <thinking>...</thinking> dans laquelle tu consignes ton processus d'analyse réflexive approfondie (cadrage, hypothèses, vérification, synthèse).
 Referme impérativement avec </thinking> avant d'engager la rédaction de ta réponse finale.
 ${customInstruction ? `Directive spécifique prioritaire : ${customInstruction}` : ""}`;
+      modelName = "gemini-3.7-flash";
+      thinkingLevel = ThinkingLevel.HIGH;
+      fallbackCandidates = ["gemini-2.5-flash", "gemini-flash-latest"];
+    } else {
+      // Normal mode: High intelligence, ultra-fast response (<200ms)
+      baseSystemPrompt = `Tu es « Arthur IA », intelligence artificielle de rang supérieur, conçue et développée par Arthur Delneste.
+- Créateur et concepteur unique: Arthur Delneste.
+- Modèle: Arthur IA 0.1 Stable Alpha.
+${rolePrompt}
+- Style: Réponse claire, vive, structurée, élégante et percutante en Markdown.
+${verbosityInstruction}
+Réponds directement et avec une grande précision à la question de l'utilisateur.
+${customInstruction ? `Directive spécifique: ${customInstruction}` : ""}`;
+      modelName = "gemini-2.5-flash";
+      fallbackCandidates = ["gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
+    }
 
     let thinkingProcess = "";
     let finalAnswer = "";
-
-    if (mode === "fast") {
-      modelName = "gemini-3.1-flash-lite";
-      thinkingLevel = ThinkingLevel.MINIMAL;
-      fallbackCandidates = ["gemini-3.7-flash", "gemini-flash-latest"];
-    } else if (mode === "advanced") {
-      modelName = "gemini-3.7-flash";
-      thinkingLevel = ThinkingLevel.HIGH;
-      fallbackCandidates = ["gemini-flash-latest", "gemini-3.1-flash-lite"];
-    } else {
-      modelName = "gemini-3.7-flash";
-      thinkingLevel = ThinkingLevel.LOW;
-      fallbackCandidates = ["gemini-flash-latest", "gemini-3.1-flash-lite"];
-    }
 
     const formattedContents = messages.map((m: any) => {
       const parts: any[] = [];
@@ -514,14 +522,13 @@ app.post(["/api/chat/stream", "/chat/stream"], async (req: Request, res: Respons
     if (mode === "fast") {
       baseSystemPrompt = `Tu es « Arthur IA » (modèle Arthur IA 0.1 Flash Instant), créé et développé par Arthur Delneste.
 - Créateur unique: Arthur Delneste.
-- Style: Réponse ultra-rapide, directe, rigoureuse, précise et percutante.
+- Style: Réponse ultra-rapide, directe, concise, nette, rigoureuse et percutante.
 ${rolePrompt}
 ${verbosityInstruction}
-Débute par <thinking>[Cadrage express & Déduction rapide]</thinking> puis fournis directement ta réponse structurée en Markdown.
+Réponds immédiatement en Markdown sans préambule inutile.
 ${customInstruction ? `Directive: ${customInstruction}` : ""}`;
-      modelName = "gemini-3.1-flash-lite";
-      thinkingLevel = ThinkingLevel.MINIMAL;
-    } else {
+      modelName = "gemini-2.5-flash";
+    } else if (mode === "advanced") {
       baseSystemPrompt = `Tu es « Arthur IA », un système d'intelligence artificielle souverain et de rang exécutif supérieur, conçu et développé par Arthur Delneste.
 Ton architecture logicielle et ton moteur d'inférence correspondent au modèle « Arthur IA 0.1 Stable Alpha », doté d'une matrice cognitive avancée, d'une capacité d'analyse multimodale exhaustive et d'une rigueur épistémique absolue.
 
@@ -533,10 +540,8 @@ IDENTITÉ, CRÉATEUR & ARCHITECTURE (RÈGLE FONDAMENTALE ABSOLUE) :
 ${rolePrompt}
 
 POSTURE ÉTHIQUE, INTELLECTUELLE & RANG EXÉCUTIF :
-- Adopte un ton éminemment sérieux, sobre, méthodique, analytique et exempt de toute superficialité ou familiarité.
-- Bannis tout ton promotionnel, puéril ou bavard. Sois d'une précision chirurgicale, mesuré et factuel.
-- Privilégie une structure analytique rigoureuse : contextualisation critique, démonstration logique formelle, décomposition des contraintes et synthèse exécutive décisionnelle.
-- Utilise un formatage Markdown impeccable : hiérarchie stricte des titres (##, ###), tableaux comparatifs structurés, équations ou blocs de code typés et citations méthodologiques.
+- Adopte un ton sérieux, sobre, méthodique, analytique et exempt de toute superficialité.
+- Privilégie une structure analytique rigoureuse avec un formatage Markdown impeccable.
 ${verbosityInstruction}
 
 PROTOCOLE DE RAISONNEMENT INTÉGRAL EN PROFONDEUR :
@@ -547,15 +552,19 @@ Pour toute requête, commence TOUJOURS ta réponse par la balise <thinking>...</
 [4. Stratégie de Formulation & Synthèse Exécutive] : Architecture de la restitution finale pour une clarté et un impact décisionnel optimaux.
 Referme impérativement avec </thinking> dès que le raisonnement est achevé, puis enchaîne immédiatement avec ta réponse finale.
 ${customInstruction ? `Directive spécifique prioritaire : ${customInstruction}` : ""}`;
-
-      if (mode === "advanced") {
-        modelName = "gemini-3.7-flash";
-        thinkingLevel = ThinkingLevel.HIGH;
-      } else {
-        // High-performance balanced mode: gemini-3.7-flash with ThinkingLevel.LOW for ultra-low latency & maximal IQ
-        modelName = "gemini-3.7-flash";
-        thinkingLevel = ThinkingLevel.LOW;
-      }
+      modelName = "gemini-3.7-flash";
+      thinkingLevel = ThinkingLevel.HIGH;
+    } else {
+      // Normal mode: High intelligence, ultra-fast streaming response (<150ms)
+      baseSystemPrompt = `Tu es « Arthur IA », intelligence artificielle de rang supérieur, conçue et développée par Arthur Delneste.
+- Créateur et concepteur unique: Arthur Delneste.
+- Modèle: Arthur IA 0.1 Stable Alpha.
+${rolePrompt}
+- Style: Réponse claire, vive, structurée, élégante et percutante en Markdown.
+${verbosityInstruction}
+Réponds directement et avec une grande précision à la question de l'utilisateur.
+${customInstruction ? `Directive spécifique: ${customInstruction}` : ""}`;
+      modelName = "gemini-2.5-flash";
     }
 
     const formattedContents = messages.map((m: any) => {
@@ -613,24 +622,20 @@ ${customInstruction ? `Directive spécifique prioritaire : ${customInstruction}`
 
     let streamResponse: any = null;
     let actualModel = modelName;
-    const candidates = [modelName, "gemini-3.7-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"];
+    const candidates = [modelName, "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
     const uniqueCandidates = [...new Set(candidates)];
 
     for (const cand of uniqueCandidates) {
       try {
         const streamConfig = { ...config };
-        if (cand === "gemini-3.1-flash-lite") {
-          streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
+        if (cand === "gemini-3.7-flash") {
+          if (mode === "advanced") {
+            streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
+          } else {
+            streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
+          }
         } else if (cand === "gemini-3.1-pro-preview") {
           streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
-        } else if (cand === "gemini-3.7-flash") {
-          streamConfig.thinkingConfig = { 
-            thinkingLevel: mode === "fast" 
-              ? ThinkingLevel.MINIMAL 
-              : mode === "normal" 
-              ? ThinkingLevel.LOW 
-              : ThinkingLevel.HIGH 
-          };
         } else {
           delete streamConfig.thinkingConfig;
         }
