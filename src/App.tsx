@@ -319,27 +319,97 @@ export default function App() {
     abortControllerRef.current = controller;
 
     try {
-      const response = await fetch('/api/chat/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          messages: currentMessageList
-            .filter((m) => !m.isError)
-            .map((m) => ({ 
-              role: m.role, 
-              content: m.content,
-              attachments: m.attachments 
-            })),
-          mode: thinkingMode,
-          webSearch,
-          role: effectivePersona,
-          verbosity: 'standard',
-        }),
-      });
+      let response: Response;
+      const requestPayload = {
+        messages: currentMessageList
+          .filter((m) => !m.isError)
+          .map((m) => ({ 
+            role: m.role, 
+            content: m.content,
+            attachments: m.attachments 
+          })),
+        mode: thinkingMode,
+        webSearch,
+        role: effectivePersona,
+        verbosity: 'standard',
+      };
 
-      if (!response.ok || !response.body) {
-        throw new Error(`Erreur réseau: ${response.status}`);
+      try {
+        response = await fetch('/api/chat/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream, application/json' },
+          signal: controller.signal,
+          body: JSON.stringify(requestPayload),
+        });
+      } catch (networkErr: any) {
+        if (networkErr.name === 'AbortError') throw networkErr;
+        // Fallback to /api/chat or /api
+        response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify(requestPayload),
+        });
+      }
+
+      if (!response.ok) {
+        // Try fallback to /api/chat or /api if /api/chat/stream returned 404/500
+        try {
+          const fallbackRes = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
+            body: JSON.stringify(requestPayload),
+          });
+          if (fallbackRes.ok) {
+            response = fallbackRes;
+          } else {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || `Erreur serveur (${response.status})`);
+          }
+        } catch (fbErr: any) {
+          if (fbErr.name === 'AbortError') throw fbErr;
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || `Erreur serveur (${response.status})`);
+        }
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+
+      // Direct JSON response handling (e.g. Vercel serverless non-streaming fallback)
+      if (contentType.includes('application/json')) {
+        const jsonData = await response.json();
+        if (jsonData.error) {
+          throw new Error(jsonData.error);
+        }
+        const text = jsonData.text || jsonData.reply || jsonData.message || '';
+        const thinking = jsonData.thinking || '';
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === aiMsgId
+              ? {
+                  ...msg,
+                  content: text,
+                  thinking: thinking,
+                  modelUsed: jsonData.modelUsed || 'Arthur IA 0.1',
+                  isStreaming: false,
+                  isThinkingStream: false,
+                }
+              : msg
+          )
+        );
+        setIsChatLoading(false);
+        abortControllerRef.current = null;
+        addLog({
+          level: 'success',
+          module: 'CHAT_STREAM',
+          message: `Réponse complétée avec succès via canal JSON direct (${text.length} caractères).`,
+        });
+        return;
+      }
+
+      if (!response.body) {
+        throw new Error('Flux de données indisponible.');
       }
 
       const reader = response.body.getReader();
