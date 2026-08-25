@@ -40,7 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       case 'emerald': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
       case 'amber': return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
       case 'cyan': return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30';
-      default: return 'bg-violet-500/10 text-violet-400 border-violet-500/30';
+      default: return 'bg-gradient-to-r from-blue-900/35 via-purple-900/25 to-pink-900/15 text-indigo-200 border-indigo-500/40 shadow-indigo-950/40';
     }
   };
 
@@ -49,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       case 'emerald': return 'bg-emerald-500';
       case 'amber': return 'bg-amber-500';
       case 'cyan': return 'bg-cyan-500';
-      default: return 'bg-violet-500';
+      default: return 'bg-gradient-to-b from-blue-400 via-purple-400 to-pink-400';
     }
   };
 
@@ -58,7 +58,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'video', label: 'Studio Vidéo', icon: Radio, desc: 'Générateur Veo 3 & Animation' },
     { id: 'images', label: 'Studio Images', icon: ImageIcon, desc: 'Génération & Édition Visuelle' },
     { id: 'audio', label: 'Studio Audio', icon: Music, desc: 'Lyria 3 & Synthèse Vocale' },
-    { id: 'documents', label: 'Documents IA', icon: FileText, desc: 'Synthèse & Analyse' },
     { id: 'settings', label: 'Paramètres & Logs', icon: Settings, desc: 'Système & Diagnostics' },
   ];
 
@@ -93,8 +92,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Brand Header */}
       <div className="p-5 border-b border-slate-800/70 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 via-indigo-600 to-slate-900 text-white shadow-xl shadow-violet-950/60 border border-violet-400/30">
-            <Sparkles className="w-5 h-5 text-violet-200 animate-pulse" />
+          <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#1a73e8] via-[#8e24aa] to-[#d81b60] text-white shadow-xl shadow-indigo-950/60 border border-white/25">
+            <Sparkles className="w-5 h-5 text-white animate-pulse" />
             <span className="absolute -top-1 -right-1 flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
@@ -103,7 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base font-bold tracking-tight text-white">Arthur IA</h1>
-              <span className="text-[10px] uppercase font-mono font-semibold px-2 py-0.5 rounded-md bg-gradient-to-r from-emerald-500/20 to-violet-500/20 text-emerald-300 border border-emerald-500/40 shadow-xs">
+              <span className="text-[10px] uppercase font-mono font-semibold px-2 py-0.5 rounded-md bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 text-indigo-300 border border-indigo-500/30 shadow-xs">
                 v0.1 STABLE ALPHA
               </span>
             </div>

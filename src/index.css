@@ -39,12 +39,12 @@
   }
 
   @keyframes pulseGlow {
-    0%, 100% { opacity: 0.4; transform: scale(1); }
-    50% { opacity: 0.8; transform: scale(1.05); }
+    0%, 100% { opacity: 0.45; transform: scale(1); }
+    50% { opacity: 0.85; transform: scale(1.08); }
   }
 
   .animate-pulse-glow {
-    animation: pulseGlow 2.5s ease-in-out infinite;
+    animation: pulseGlow 3.5s ease-in-out infinite;
   }
 
   @keyframes cursorBlink {
@@ -54,6 +54,144 @@
 
   .animate-cursor-blink {
     animation: cursorBlink 0.9s infinite;
+  }
+
+  @keyframes geminiShimmer {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .animate-gemini-gradient {
+    background-size: 200% 200%;
+    animation: geminiShimmer 6s ease infinite;
+  }
+
+  @keyframes scanline {
+    0% { transform: translateY(-100%); opacity: 0; }
+    50% { opacity: 0.8; }
+    100% { transform: translateY(200%); opacity: 0; }
+  }
+
+  .animate-scanline {
+    animation: scanline 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes neuralStream {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 200% 0%; }
+  }
+
+  .animate-neural-stream {
+    background: linear-gradient(90deg, transparent 0%, rgba(99, 102, 241, 0.4) 25%, rgba(236, 72, 153, 0.4) 50%, rgba(99, 102, 241, 0.4) 75%, transparent 100%);
+    background-size: 200% 100%;
+    animation: neuralStream 2s linear infinite;
+  }
+
+  @keyframes borderPulse {
+    0%, 100% { border-color: rgba(99, 102, 241, 0.3); box-shadow: 0 0 15px rgba(99, 102, 241, 0.15); }
+    50% { border-color: rgba(236, 72, 153, 0.5); box-shadow: 0 0 25px rgba(236, 72, 153, 0.25); }
+  }
+
+  .animate-border-pulse {
+    animation: borderPulse 3s ease-in-out infinite;
+  }
+
+  /* Gemini Inspired Gradients */
+  .gemini-text-gradient {
+    background: linear-gradient(135deg, #4E88F5 0%, #8AB4F8 25%, #9B72CB 55%, #D96570 85%, #F472B6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .gemini-bg-gradient {
+    background: linear-gradient(135deg, #1d4ed8 0%, #4338ca 40%, #7e22ce 80%, #be185d 100%);
+  }
+
+  .gemini-bg-subtle {
+    background: radial-gradient(circle at 50% -20%, rgba(78, 136, 245, 0.18), rgba(155, 114, 203, 0.12) 35%, rgba(217, 101, 112, 0.05) 60%, transparent 80%);
+  }
+
+  /* Serious Executive Typography for Markdown */
+  .prose-serious {
+    color: #e2e8f0;
+    line-height: 1.75;
+  }
+
+  .prose-serious h1, .prose-serious h2, .prose-serious h3, .prose-serious h4 {
+    color: #ffffff;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .prose-serious h1 {
+    font-size: 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.35rem;
+  }
+
+  .prose-serious h2 {
+    font-size: 1.1rem;
+    color: #e0e7ff;
+  }
+
+  .prose-serious h3 {
+    font-size: 0.95rem;
+    color: #cbd5e1;
+  }
+
+  .prose-serious p {
+    margin-bottom: 0.85rem;
+  }
+
+  .prose-serious ul, .prose-serious ol {
+    margin-left: 1.25rem;
+    margin-bottom: 0.85rem;
+    space-y: 0.25rem;
+  }
+
+  .prose-serious li {
+    margin-bottom: 0.25rem;
+  }
+
+  .prose-serious blockquote {
+    border-left: 3px solid #6366f1;
+    padding-left: 0.85rem;
+    color: #94a3b8;
+    font-style: italic;
+    margin: 0.75rem 0;
+    background: rgba(99, 102, 241, 0.05);
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+    border-radius: 0 0.5rem 0.5rem 0;
+  }
+
+  .prose-serious table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+  }
+
+  .prose-serious th {
+    background: rgba(30, 41, 59, 0.8);
+    color: #f1f5f9;
+    font-weight: 600;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(51, 65, 85, 0.8);
+  }
+
+  .prose-serious td {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(51, 65, 85, 0.6);
+    color: #cbd5e1;
+  }
+
+  .prose-serious tr:nth-child(even) {
+    background: rgba(15, 23, 42, 0.5);
   }
 
   .safe-area-pb {

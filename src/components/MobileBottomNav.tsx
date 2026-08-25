@@ -26,7 +26,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     { id: 'video', label: 'Vidéo', icon: Film },
     { id: 'images', label: 'Images', icon: ImageIcon },
     { id: 'audio', label: 'Audio', icon: Music },
-    { id: 'documents', label: 'Docs', icon: FileText },
     { id: 'settings', label: 'Système', icon: Settings },
   ];
 

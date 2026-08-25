@@ -1,4 +1,4 @@
-export type TabType = 'chat' | 'video' | 'images' | 'audio' | 'documents' | 'settings';
+export type TabType = 'chat' | 'video' | 'images' | 'audio' | 'settings';
 
 export type ThinkingMode = 'fast' | 'normal' | 'advanced';
 
@@ -27,11 +27,23 @@ export interface MapPlaceCitation {
   googleMapsUrl?: string;
 }
 
+export interface ChatAttachment {
+  id: string;
+  name: string;
+  size: number;
+  type?: string;
+  mimeType?: string;
+  textContent?: string;
+  base64Data?: string;
+  previewUrl?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  attachments?: ChatAttachment[];
   thinking?: string;
   thinkingDurationMs?: number;
   modelUsed?: string;
@@ -43,6 +55,8 @@ export interface ChatMessage {
   audioBase64?: string;
   isError?: boolean;
   canRetry?: boolean;
+  isStreaming?: boolean;
+  isThinkingStream?: boolean;
 }
 
 export interface VideoItem {

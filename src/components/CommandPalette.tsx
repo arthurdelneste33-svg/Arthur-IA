@@ -98,14 +98,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       action: () => { onSelectTab('images'); onClose(); },
     },
     {
-      id: 'tab-documents',
-      title: 'Analyseur de Documents',
-      category: 'Navigation',
-      subtitle: 'Interroger et synthétiser des fichiers PDF, DOCX, CSV',
-      icon: FileText,
-      action: () => { onSelectTab('documents'); onClose(); },
-    },
-    {
       id: 'tab-settings',
       title: 'Paramètres & Audit Système',
       category: 'Navigation',

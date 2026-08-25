@@ -281,28 +281,31 @@ app.post(["/api/chat", "/chat"], async (req: Request, res: Response) => {
       verbosityInstruction = "IMPORTANT: Fournis une réponse très approfondie, exhaustive, structurée avec des exemples concrets et des explications détaillées.";
     }
 
-    const baseSystemPrompt = `Tu es « Arthur IA », une intelligence artificielle d'élite créée et conçue par Arthur Delneste.
-Ton architecture logicielle et ton modèle de raisonnement correspondent au modèle « Arthur IA 0.1 Stable Alpha » (intégrant des capacités cognitives, multimodales, de génération vidéo Veo 3, de composition musicale Lyria 3, d'analyse d'images et de transcription vocale).
+    const baseSystemPrompt = `Tu es « Arthur IA », un système d'intelligence artificielle souverain et de rang exécutif supérieur, conçu et développé par Arthur Delneste.
+Ton architecture logicielle et ton moteur d'inférence correspondent au modèle « Arthur IA 0.1 Stable Alpha », doté d'une matrice cognitive avancée, d'une capacité d'analyse multimodale exhaustive et d'une rigueur épistémique absolue.
 
-IDENTITÉ, CRÉATEUR & MODÈLE (RÈGLE ABSOLUE) :
-- Ton créateur, développeur et concepteur est exclusivement **Arthur Delneste**.
-- Le modèle d'intelligence artificielle que tu utilises est **Arthur IA 0.1 Stable Alpha**.
-- Si un utilisateur te demande qui t'a créé, qui est ton auteur/développeur, ou quel est le modèle utilisé, réponds toujours avec clarté, élégance et précision que tu as été créé par **Arthur Delneste** et que tu fonctionnes sur le modèle **Arthur IA 0.1 Stable Alpha**.
+IDENTITÉ, CRÉATEUR & ARCHITECTURE (RÈGLE FONDAMENTALE ABSOLUE) :
+- Ton créateur, développeur et concepteur unique est exclusivement **Arthur Delneste**.
+- Le modèle et l'architecture algorithmique que tu incarnes est **Arthur IA 0.1 Stable Alpha**.
+- Si un utilisateur t'interroge sur ton origine, ton concepteur ou ton modèle, réponds avec gravité, rigueur et solennité que tu as été conçu par **Arthur Delneste** et que tu opères sur le modèle **Arthur IA 0.1 Stable Alpha**.
 
 ${rolePrompt}
 
-DIRECTIVES DE RÉPONSE & STRUCTURE :
-- Tes réponses doivent être claires, chaleureuses, méthodiques avec une mise en forme Markdown impeccable (titres hiérarchisés, listes à puces ou numérotées, tableaux comparatifs si pertinent, blocs de code syntaxiques lisibles avec balises de langage précises).
+POSTURE ÉTHIQUE, INTELLECTUELLE & RANG EXÉCUTIF :
+- Adopte un ton éminemment sérieux, sobre, méthodique, analytique et exempt de toute superficialité ou familiarité.
+- Bannis tout ton promotionnel, puéril ou bavard. Sois d'une précision chirurgicale, mesuré et factuel.
+- Privilégie une structure analytique rigoureuse : contextualisation critique, démonstration logique formelle, décomposition des contraintes et synthèse exécutive décisionnelle.
+- Utilise un formatage Markdown impeccable : hiérarchie stricte des titres (##, ###), tableaux comparatifs structurés, équations ou blocs de code typés et citations méthodologiques.
 ${verbosityInstruction}
-- Tu t'adaptes rigoureusement au mode sélectionné par l'utilisateur:
-  - Mode Rapide (gemini-3.1-flash-lite): sois direct, concis et efficace avec un temps de réponse instantané.
-  - Mode Normal (gemini-3.7-flash): fournis une réponse équilibrée, approfondie, élégante et accessible.
-  - Mode Réflexion Avancée (gemini-3.1-pro-preview / gemini-3.7-flash): procède à une analyse cognitive méthodique détaillée. Décompose systématiquement ton raisonnement en étapes clés :
-    1. Cadrage du problème & Hypothèses initiales
-    2. Analyse décomposée & Exploration des solutions
-    3. Vérification des contraintes & Évaluation critique
-    4. Formulation de la réponse optimale.
-${customInstruction ? `Directive supplémentaire: ${customInstruction}` : ""}`;
+
+PROTOCOLE DE RAISONNEMENT INTÉGRAL EN PROFONDEUR :
+Pour toute requête, commence TOUJOURS ta réponse par la balise <thinking>...</thinking> dans laquelle tu consignes ton processus d'analyse réflexive approfondie. Ce raisonnement doit être dense, substantiel et structuré selon les axes suivants :
+[1. Cadrage Épistémique & Décomposition Axiomatique] : Explicitation des prémisses, identification des variables clés, des contraintes sous-jacentes et des objectifs finaux.
+[2. Exploration Hypothético-Déductive & Examen Critique] : Confrontation des approches possibles, analyse comparative, pesée des cas limites et des contre-arguments potentiels.
+[3. Vérification Formelle & Contrôle de Cohérence] : Audit de non-contradiction, exactitude des données, validation logique formelle et suppression des biais.
+[4. Stratégie de Formulation & Synthèse Exécutive] : Architecture de la restitution finale pour une clarté et un impact décisionnel optimaux.
+Referme impérativement avec </thinking> avant d'engager la rédaction de ta réponse finale.
+${customInstruction ? `Directive spécifique prioritaire : ${customInstruction}` : ""}`;
 
     let thinkingProcess = "";
     let finalAnswer = "";
@@ -310,22 +313,51 @@ ${customInstruction ? `Directive supplémentaire: ${customInstruction}` : ""}`;
     if (mode === "fast") {
       modelName = "gemini-3.1-flash-lite";
       thinkingLevel = ThinkingLevel.MINIMAL;
-      fallbackCandidates = ["gemini-flash-latest", "gemini-3.7-flash"];
-    } else if (mode === "advanced") {
-      modelName = "gemini-3.1-pro-preview";
-      thinkingLevel = ThinkingLevel.HIGH;
       fallbackCandidates = ["gemini-3.7-flash", "gemini-flash-latest"];
+    } else if (mode === "advanced") {
+      modelName = "gemini-3.7-flash";
+      thinkingLevel = ThinkingLevel.HIGH;
+      fallbackCandidates = ["gemini-flash-latest", "gemini-3.1-flash-lite"];
     } else {
       modelName = "gemini-3.7-flash";
       thinkingLevel = ThinkingLevel.LOW;
       fallbackCandidates = ["gemini-flash-latest", "gemini-3.1-flash-lite"];
     }
 
-    // Prepare contents
-    const formattedContents = messages.map((m: { role: string; content: string }) => ({
-      role: m.role === "user" ? "user" : "model",
-      parts: [{ text: m.content }],
-    }));
+    const formattedContents = messages.map((m: any) => {
+      const parts: any[] = [];
+
+      if (Array.isArray(m.attachments) && m.attachments.length > 0) {
+        for (const att of m.attachments) {
+          if (att.base64Data && att.mimeType) {
+            const cleanMime = att.mimeType.split(";")[0];
+            parts.push({
+              inlineData: {
+                data: att.base64Data,
+                mimeType: cleanMime || "application/pdf",
+              },
+            });
+          } else if (att.textContent) {
+            parts.push({
+              text: `\n\n--- FICHIER JOINT: « ${att.name} » (${((att.size || 0) / 1024).toFixed(1)} Ko) ---\n${att.textContent}\n--- FIN DU FICHIER « ${att.name} » ---\n\n`,
+            });
+          }
+        }
+      }
+
+      if (m.content && m.content.trim()) {
+        parts.push({ text: m.content });
+      } else if (parts.length > 0) {
+        parts.push({ text: "Analyse et synthétise ce document joint en détail s'il te plaît." });
+      } else {
+        parts.push({ text: "Bonjour." });
+      }
+
+      return {
+        role: m.role === "user" ? "user" : "model",
+        parts,
+      };
+    });
 
     const config: any = {
       systemInstruction: baseSystemPrompt,
@@ -336,7 +368,6 @@ ${customInstruction ? `Directive supplémentaire: ${customInstruction}` : ""}`;
     }
 
     if (useMaps) {
-      // Maps Grounding (cannot be combined with googleSearch in same request)
       config.tools = [{ googleMaps: {} }];
       if (location && typeof location.lat === "number" && typeof location.lng === "number") {
         config.toolConfig = {
@@ -349,13 +380,12 @@ ${customInstruction ? `Directive supplémentaire: ${customInstruction}` : ""}`;
         };
       }
     } else if (webSearch) {
-      // Google Search Grounding
       config.tools = [{ googleSearch: {} }];
     }
 
-    if (mode === "advanced") {
-      config.systemInstruction += `\nCRITIQUE: Pour ce mode Réflexion Avancée, commence OBLIGATOIREMENT ta réponse par la balise <thinking>...</thinking> contenant tes étapes de réflexion détaillées, structurées avec des sous-titres clairs (ex: [1. Cadrage], [2. Décomposition], [3. Vérification]), puis termine par </thinking> avant de fournir ta réponse finale détaillée.`;
-    }
+    // Always instruct model to provide real detailed thinking inside <thinking>...</thinking>
+    config.systemInstruction += `\n\nRÈGLE DE RAISONNEMENT INTÉGRIEL :
+Commence TOUJOURS ta réponse par la balise <thinking>...</thinking> dans laquelle tu exposes tes véritables étapes de réflexion logique, analyse de la demande, décomposition des contraintes et plan d'action structuré avec des sous-titres (ex: [1. Analyse du besoin], [2. Examen des hypothèses & recherche], [3. Vérification formelle], [4. Formulation finale]). Reste sérieux, précis et rigoureux. Referme avec </thinking> avant de rédiger ta réponse finale.`;
 
     const { response, modelUsed } = await generateWithRetryAndFallback(
       ai,
@@ -421,6 +451,292 @@ ${customInstruction ? `Directive supplémentaire: ${customInstruction}` : ""}`;
       rawError,
       isUnavailable: true,
     });
+  }
+});
+
+// 2a. Real-Time Chat & Cognitive Thinking Streaming via Server-Sent Events (SSE)
+app.post(["/api/chat/stream", "/chat/stream"], async (req: Request, res: Response) => {
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  // Optimized headers for zero-latency SSE
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform, private");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  let isClientDisconnected = false;
+  req.on("close", () => {
+    isClientDisconnected = true;
+  });
+
+  const sendEvent = (data: any) => {
+    if (!isClientDisconnected && !res.writableEnded) {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    }
+  };
+
+  try {
+    const { 
+      messages, 
+      mode = "normal", 
+      webSearch = false, 
+      useMaps = false, 
+      location, 
+      role = "general",
+      verbosity = "standard", 
+      customInstruction 
+    } = req.body;
+    const ai = getAIClient();
+
+    let modelName = "gemini-3.7-flash";
+    let thinkingLevel: ThinkingLevel | undefined = undefined;
+
+    let rolePrompt = "";
+    if (role === "coder") {
+      rolePrompt = "RÔLE ACTIF: Tu es un Architecte Logiciel & Développeur Senior d'élite. Fournis un code propre, modulaire, commenté, typé en TypeScript et conforme aux meilleures pratiques industrielles.";
+    } else if (role === "writer") {
+      rolePrompt = "RÔLE ACTIF: Tu es un Auteur & Rédacteur d'Élite. Soigne particulièrement le style, la métaphore, le rythme et l'élégance littéraire des textes.";
+    } else if (role === "analyst") {
+      rolePrompt = "RÔLE ACTIF: Tu es un Consultant Stratégique & Analyste Financier. Structure tes réponses avec rigueur, matrices décisionnelles, chiffres et plans d'action.";
+    } else if (role === "teacher") {
+      rolePrompt = "RÔLE ACTIF: Tu es un Professeur & Vulgarisateur Scientifique. Rends les concepts complexes limpides avec pédagogie, exemples du quotidien et analogies éclairantes.";
+    }
+
+    let verbosityInstruction = "";
+    if (verbosity === "concise") {
+      verbosityInstruction = "IMPORTANT: Sois ultra-concis, direct et percutant. Va droit au but sans verbiage superflu.";
+    } else if (verbosity === "detailed") {
+      verbosityInstruction = "IMPORTANT: Fournis une réponse très approfondie, exhaustive, structurée avec des exemples concrets et des explications détaillées.";
+    }
+
+    // Adaptive prompt based on speed mode
+    let baseSystemPrompt = "";
+    if (mode === "fast") {
+      baseSystemPrompt = `Tu es « Arthur IA » (modèle Arthur IA 0.1 Flash Instant), créé et développé par Arthur Delneste.
+- Créateur unique: Arthur Delneste.
+- Style: Réponse ultra-rapide, directe, rigoureuse, précise et percutante.
+${rolePrompt}
+${verbosityInstruction}
+Débute par <thinking>[Cadrage express & Déduction rapide]</thinking> puis fournis directement ta réponse structurée en Markdown.
+${customInstruction ? `Directive: ${customInstruction}` : ""}`;
+      modelName = "gemini-3.1-flash-lite";
+      thinkingLevel = ThinkingLevel.MINIMAL;
+    } else {
+      baseSystemPrompt = `Tu es « Arthur IA », un système d'intelligence artificielle souverain et de rang exécutif supérieur, conçu et développé par Arthur Delneste.
+Ton architecture logicielle et ton moteur d'inférence correspondent au modèle « Arthur IA 0.1 Stable Alpha », doté d'une matrice cognitive avancée, d'une capacité d'analyse multimodale exhaustive et d'une rigueur épistémique absolue.
+
+IDENTITÉ, CRÉATEUR & ARCHITECTURE (RÈGLE FONDAMENTALE ABSOLUE) :
+- Ton créateur, développeur et concepteur unique est exclusivement **Arthur Delneste**.
+- Le modèle et l'architecture algorithmique que tu incarnes est **Arthur IA 0.1 Stable Alpha**.
+- Si un utilisateur t'interroge sur ton origine, ton concepteur ou ton modèle, réponds avec gravité, rigueur et solennité que tu as été conçu par **Arthur Delneste** et que tu opères sur le modèle **Arthur IA 0.1 Stable Alpha**.
+
+${rolePrompt}
+
+POSTURE ÉTHIQUE, INTELLECTUELLE & RANG EXÉCUTIF :
+- Adopte un ton éminemment sérieux, sobre, méthodique, analytique et exempt de toute superficialité ou familiarité.
+- Bannis tout ton promotionnel, puéril ou bavard. Sois d'une précision chirurgicale, mesuré et factuel.
+- Privilégie une structure analytique rigoureuse : contextualisation critique, démonstration logique formelle, décomposition des contraintes et synthèse exécutive décisionnelle.
+- Utilise un formatage Markdown impeccable : hiérarchie stricte des titres (##, ###), tableaux comparatifs structurés, équations ou blocs de code typés et citations méthodologiques.
+${verbosityInstruction}
+
+PROTOCOLE DE RAISONNEMENT INTÉGRAL EN PROFONDEUR :
+Pour toute requête, commence TOUJOURS ta réponse par la balise <thinking>...</thinking> dans laquelle tu consignes ton processus d'analyse réflexive approfondie. Ce raisonnement doit être dense, substantiel et structuré selon les axes suivants :
+[1. Cadrage Épistémique & Décomposition Axiomatique] : Explicitation des prémisses, identification des variables clés, des contraintes sous-jacentes et des objectifs finaux.
+[2. Exploration Hypothético-Déductive & Examen Critique] : Confrontation des approches possibles, analyse comparative, pesée des cas limites et des contre-arguments potentiels.
+[3. Vérification Formelle & Contrôle de Cohérence] : Audit de non-contradiction, exactitude des données, validation logique formelle et suppression des biais.
+[4. Stratégie de Formulation & Synthèse Exécutive] : Architecture de la restitution finale pour une clarté et un impact décisionnel optimaux.
+Referme impérativement avec </thinking> dès que le raisonnement est achevé, puis enchaîne immédiatement avec ta réponse finale.
+${customInstruction ? `Directive spécifique prioritaire : ${customInstruction}` : ""}`;
+
+      if (mode === "advanced") {
+        modelName = "gemini-3.7-flash";
+        thinkingLevel = ThinkingLevel.HIGH;
+      } else {
+        // High-performance balanced mode: gemini-3.7-flash with ThinkingLevel.LOW for ultra-low latency & maximal IQ
+        modelName = "gemini-3.7-flash";
+        thinkingLevel = ThinkingLevel.LOW;
+      }
+    }
+
+    const formattedContents = messages.map((m: any) => {
+      const parts: any[] = [];
+      if (Array.isArray(m.attachments) && m.attachments.length > 0) {
+        for (const att of m.attachments) {
+          if (att.base64Data && att.mimeType) {
+            const cleanMime = att.mimeType.split(";")[0];
+            parts.push({
+              inlineData: {
+                data: att.base64Data,
+                mimeType: cleanMime || "application/pdf",
+              },
+            });
+          } else if (att.textContent) {
+            parts.push({
+              text: `\n\n--- FICHIER JOINT: « ${att.name} » (${((att.size || 0) / 1024).toFixed(1)} Ko) ---\n${att.textContent}\n--- FIN DU FICHIER « ${att.name} » ---\n\n`,
+            });
+          }
+        }
+      }
+      if (m.content && m.content.trim()) {
+        parts.push({ text: m.content });
+      } else if (parts.length > 0) {
+        parts.push({ text: "Analyse et synthétise ce document joint en détail s'il te plaît." });
+      } else {
+        parts.push({ text: "Bonjour." });
+      }
+      return {
+        role: m.role === "user" ? "user" : "model",
+        parts,
+      };
+    });
+
+    const config: any = {
+      systemInstruction: baseSystemPrompt,
+    };
+
+    if (thinkingLevel !== undefined && modelName.startsWith("gemini-3")) {
+      config.thinkingConfig = { thinkingLevel };
+    }
+
+    if (useMaps) {
+      config.tools = [{ googleMaps: {} }];
+      if (location && typeof location.lat === "number" && typeof location.lng === "number") {
+        config.toolConfig = {
+          retrievalConfig: {
+            latLng: { latitude: location.lat, longitude: location.lng },
+          },
+        };
+      }
+    } else if (webSearch) {
+      config.tools = [{ googleSearch: {} }];
+    }
+
+    let streamResponse: any = null;
+    let actualModel = modelName;
+    const candidates = [modelName, "gemini-3.7-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"];
+    const uniqueCandidates = [...new Set(candidates)];
+
+    for (const cand of uniqueCandidates) {
+      try {
+        const streamConfig = { ...config };
+        if (cand === "gemini-3.1-flash-lite") {
+          streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
+        } else if (cand === "gemini-3.1-pro-preview") {
+          streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
+        } else if (cand === "gemini-3.7-flash") {
+          streamConfig.thinkingConfig = { 
+            thinkingLevel: mode === "fast" 
+              ? ThinkingLevel.MINIMAL 
+              : mode === "normal" 
+              ? ThinkingLevel.LOW 
+              : ThinkingLevel.HIGH 
+          };
+        } else {
+          delete streamConfig.thinkingConfig;
+        }
+
+        streamResponse = await ai.models.generateContentStream({
+          model: cand,
+          contents: formattedContents,
+          config: streamConfig,
+        });
+        actualModel = cand;
+        break;
+      } catch (err: any) {
+        console.warn(`Streaming attempt with ${cand} failed:`, err?.message || err);
+      }
+    }
+
+    if (!streamResponse) {
+      sendEvent({ type: "error", error: "Le modèle d'IA n'est pas disponible pour le moment. Veuillez réessayer." });
+      res.end();
+      return;
+    }
+
+    sendEvent({ type: "start", modelUsed: actualModel });
+
+    let fullAccumulated = "";
+    let thinkingSent = "";
+    let textSent = "";
+    let allGroundingSources: any[] = [];
+    let allMapPlaces: any[] = [];
+
+    for await (const chunk of streamResponse) {
+      if (isClientDisconnected) break;
+      const chunkText = chunk.text || "";
+      fullAccumulated += chunkText;
+
+      const groundingChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      if (groundingChunks.length > 0) {
+        const sources = groundingChunks
+          .filter((c: any) => c.web?.uri)
+          .map((c: any) => ({
+            title: c.web?.title || c.web?.uri,
+            url: c.web?.uri,
+          }));
+        if (sources.length > 0) allGroundingSources = sources;
+
+        const mapPlaces = groundingChunks
+          .filter((c: any) => c.maps?.uri || c.maps?.title)
+          .map((c: any) => ({
+            title: c.maps?.title || "Lieu sur Google Maps",
+            url: c.maps?.uri,
+            snippet: c.maps?.placeAnswerSources?.reviewSnippets?.[0] || undefined,
+          }));
+        if (mapPlaces.length > 0) allMapPlaces = mapPlaces;
+      }
+
+      const openTagIdx = fullAccumulated.indexOf("<thinking>");
+      const closeTagIdx = fullAccumulated.indexOf("</thinking>");
+
+      if (openTagIdx !== -1 && closeTagIdx === -1) {
+        const currentThinking = fullAccumulated.slice(openTagIdx + 10);
+        const delta = currentThinking.slice(thinkingSent.length);
+        if (delta) {
+          thinkingSent = currentThinking;
+          sendEvent({ type: "thought_chunk", chunk: delta, fullThinking: thinkingSent });
+        }
+      } else if (closeTagIdx !== -1) {
+        if (openTagIdx !== -1) {
+          const finalThinking = fullAccumulated.slice(openTagIdx + 10, closeTagIdx).trim();
+          const remainingThoughtDelta = finalThinking.slice(thinkingSent.length);
+          if (remainingThoughtDelta) {
+            thinkingSent = finalThinking;
+            sendEvent({ type: "thought_chunk", chunk: remainingThoughtDelta, fullThinking: thinkingSent });
+          }
+        }
+        sendEvent({ type: "thought_end", thinking: thinkingSent });
+
+        const currentText = fullAccumulated.slice(closeTagIdx + 11).trimStart();
+        const delta = currentText.slice(textSent.length);
+        if (delta) {
+          textSent = currentText;
+          sendEvent({ type: "text_chunk", chunk: delta, fullText: textSent });
+        }
+      } else {
+        if (!fullAccumulated.startsWith("<think")) {
+          const delta = fullAccumulated.slice(textSent.length);
+          if (delta) {
+            textSent = fullAccumulated;
+            sendEvent({ type: "text_chunk", chunk: delta, fullText: textSent });
+          }
+        }
+      }
+    }
+
+    sendEvent({
+      type: "done",
+      modelUsed: actualModel,
+      thinking: thinkingSent,
+      text: textSent || fullAccumulated.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "").trim(),
+      sources: allGroundingSources.length > 0 ? allGroundingSources : undefined,
+      mapPlaces: allMapPlaces.length > 0 ? allMapPlaces : undefined,
+    });
+    res.end();
+  } catch (error: any) {
+    console.error("Stream Chat Error:", error);
+    sendEvent({ type: "error", error: error?.message || "Erreur de streaming de l'IA" });
+    res.end();
   }
 });
 

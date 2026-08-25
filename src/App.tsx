@@ -3,15 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   TabType, 
   ThinkingMode, 
   ChatMessage, 
+  ChatAttachment,
   MusicTrack, 
   GeneratedImage, 
-  DocumentItem, 
   VideoItem,
   ChatPersonaRole,
   AppSettings, 
@@ -25,7 +25,6 @@ import { ChatView } from './components/ChatView';
 import { AudioGeneratorView } from './components/AudioGeneratorView';
 import { ImageGeneratorView } from './components/ImageGeneratorView';
 import { VideoGeneratorView } from './components/VideoGeneratorView';
-import { DocumentAnalyzerView } from './components/DocumentAnalyzerView';
 import { SettingsView } from './components/SettingsView';
 import { ToastContainer } from './components/ToastContainer';
 import { CommandPalette } from './components/CommandPalette';
@@ -92,19 +91,6 @@ export default function App() {
   // Generated Images Library
   const [images, setImages] = useState<GeneratedImage[]>(() => {
     const saved = localStorage.getItem('arthur_images');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // ignore
-      }
-    }
-    return [];
-  });
-
-  // Analyzed Documents Library
-  const [documents, setDocuments] = useState<DocumentItem[]>(() => {
-    const saved = localStorage.getItem('arthur_documents');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -228,14 +214,6 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('arthur_documents', JSON.stringify(documents.slice(-20)));
-    } catch {
-      // ignore
-    }
-  }, [documents]);
-
-  useEffect(() => {
-    try {
       localStorage.setItem('arthur_videos', JSON.stringify(videos.slice(-15)));
     } catch {
       // ignore
@@ -267,8 +245,35 @@ export default function App() {
     showToast('success', 'Paramètres sauvegardés.', 'Configuration');
   };
 
-  // Chat message send handler
-  const handleSendMessage = async (text: string, isRetry = false, persona?: ChatPersonaRole) => {
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Stop Generation Handler
+  const handleStopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsChatLoading(false);
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.isStreaming ? { ...msg, isStreaming: false, isThinkingStream: false } : msg
+      )
+    );
+    addLog({
+      level: 'info',
+      module: 'CHAT_STREAM',
+      message: 'Génération interrompue par l\'utilisateur.',
+    });
+    showToast('info', 'Génération arrêtée.', 'IA');
+  };
+
+  // Chat message send handler with document attachment & real-time reasoning streaming
+  const handleSendMessage = async (
+    text: string, 
+    isRetry = false, 
+    persona?: ChatPersonaRole,
+    attachments?: ChatAttachment[]
+  ) => {
     const effectivePersona = persona || activePersona;
     let currentMessageList = messages;
 
@@ -277,6 +282,7 @@ export default function App() {
         id: `msg-${Date.now()}-user`,
         role: 'user',
         content: text,
+        attachments: attachments && attachments.length > 0 ? attachments : undefined,
         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
       };
       currentMessageList = [...messages, userMsg];
@@ -285,87 +291,215 @@ export default function App() {
 
     setIsChatLoading(true);
 
+    const docCount = attachments?.length || 0;
     addLog({
       level: 'info',
-      module: 'CHAT_ENGINE',
-      message: `Envoi requête [Mode: ${thinkingMode.toUpperCase()} | Persona: ${effectivePersona}] : « ${text.slice(0, 35)}... »`,
+      module: 'CHAT_STREAM',
+      message: `Initialisation du flux [Mode: ${thinkingMode.toUpperCase()} | Persona: ${effectivePersona}${docCount > 0 ? ` | Docs: ${docCount}` : ''}] : « ${text ? text.slice(0, 35) : 'Analyse de document'}... »`,
     });
 
+    const aiMsgId = `msg-${Date.now()}-ai`;
+    const initialAiMsg: ChatMessage = {
+      id: aiMsgId,
+      role: 'assistant',
+      content: '',
+      thinking: '',
+      mode: thinkingMode,
+      isStreaming: true,
+      isThinkingStream: true,
+      timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setMessages((prev) => [...prev, initialAiMsg]);
+
+    const thinkingStartTime = Date.now();
+    let thinkingEndTime = 0;
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const data = await safeFetchJson<{
-        text: string;
-        thinking?: string;
-        modelUsed?: string;
-        sources?: any[];
-        mapPlaces?: any[];
-      }>('/api/chat', {
+      const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           messages: currentMessageList
             .filter((m) => !m.isError)
-            .map((m) => ({ role: m.role, content: m.content })),
+            .map((m) => ({ 
+              role: m.role, 
+              content: m.content,
+              attachments: m.attachments 
+            })),
           mode: thinkingMode,
           webSearch,
-          persona: effectivePersona,
+          role: effectivePersona,
           verbosity: 'standard',
         }),
       });
 
-      const aiMsg: ChatMessage = {
-        id: `msg-${Date.now()}-ai`,
-        role: 'assistant',
-        content: data.text,
-        thinking: data.thinking,
-        modelUsed: data.modelUsed,
-        mode: thinkingMode,
-        sources: data.sources,
-        mapPlaces: data.mapPlaces,
-        timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+      if (!response.ok || !response.body) {
+        throw new Error(`Erreur réseau: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+      let accumulatedThinking = '';
+      let accumulatedText = '';
+      let receivedModel = '';
+      let receivedSources: any[] | undefined = undefined;
+      let receivedPlaces: any[] | undefined = undefined;
+
+      // Micro-batched UI update queue to guarantee 60fps rendering without choking React
+      let pendingUpdate = false;
+      const scheduleUIUpdate = (isThinking: boolean, isStreaming: boolean) => {
+        if (pendingUpdate) return;
+        pendingUpdate = true;
+        requestAnimationFrame(() => {
+          pendingUpdate = false;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMsgId
+                ? {
+                    ...msg,
+                    content: accumulatedText,
+                    thinking: accumulatedThinking,
+                    modelUsed: receivedModel || msg.modelUsed,
+                    isThinkingStream: isThinking,
+                    isStreaming: isStreaming,
+                  }
+                : msg
+            )
+          );
+        });
       };
 
-      setMessages((prev) => [...prev, aiMsg]);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      addLog({
-        level: 'success',
-        module: 'CHAT_ENGINE',
-        message: `Réponse reçue via ${data.modelUsed || 'Gemini 3.7'} (${data.text.length} caractères).`,
-      });
-    } catch (err: any) {
-      console.error('Chat error:', err);
-      let errorText = err.message || 'Une erreur inattendue est survenue.';
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
 
-      // Clean raw JSON error format if returned
-      if (errorText.includes('503') || errorText.includes('high demand') || errorText.includes('UNAVAILABLE')) {
-        errorText = "Le serveur d'intelligence artificielle connaît un pic de demande temporaire. Le système a effectué plusieurs tentatives automatiques de secours. Vous pouvez relancer la demande en cliquant sur « Réessayer » ci-dessous.";
-      } else if (errorText.startsWith('{') || errorText.includes('"error"')) {
-        try {
-          const parsed = JSON.parse(errorText.replace(/^.*?({.*}).*$/, '$1'));
-          errorText = parsed.error?.message || parsed.message || errorText;
-        } catch {
-          // keep sanitized
+        for (const part of parts) {
+          const trimmed = part.trim();
+          if (!trimmed.startsWith('data: ')) continue;
+          const jsonStr = trimmed.slice(6);
+          try {
+            const data = JSON.parse(jsonStr);
+
+            if (data.type === 'start') {
+              receivedModel = data.modelUsed;
+              scheduleUIUpdate(true, true);
+            } else if (data.type === 'thought_chunk') {
+              accumulatedThinking = data.fullThinking || (accumulatedThinking + data.chunk);
+              scheduleUIUpdate(true, true);
+            } else if (data.type === 'thought_end') {
+              if (!thinkingEndTime) thinkingEndTime = Date.now();
+              if (data.thinking) accumulatedThinking = data.thinking;
+              const duration = thinkingEndTime - thinkingStartTime;
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === aiMsgId
+                    ? { 
+                        ...msg, 
+                        thinking: accumulatedThinking,
+                        isThinkingStream: false,
+                        thinkingDurationMs: duration,
+                      }
+                    : msg
+                )
+              );
+            } else if (data.type === 'text_chunk') {
+              if (!thinkingEndTime) thinkingEndTime = Date.now();
+              accumulatedText = data.fullText || (accumulatedText + data.chunk);
+              scheduleUIUpdate(false, true);
+            } else if (data.type === 'done') {
+              if (!thinkingEndTime) thinkingEndTime = Date.now();
+              if (data.modelUsed) receivedModel = data.modelUsed;
+              if (data.sources) receivedSources = data.sources;
+              if (data.mapPlaces) receivedPlaces = data.mapPlaces;
+              if (data.thinking) accumulatedThinking = data.thinking;
+              if (data.text) accumulatedText = data.text;
+
+              const duration = thinkingEndTime ? thinkingEndTime - thinkingStartTime : undefined;
+
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === aiMsgId
+                    ? {
+                        ...msg,
+                        content: accumulatedText,
+                        thinking: accumulatedThinking,
+                        modelUsed: receivedModel || msg.modelUsed,
+                        sources: receivedSources,
+                        mapPlaces: receivedPlaces,
+                        isStreaming: false,
+                        isThinkingStream: false,
+                        thinkingDurationMs: duration,
+                      }
+                    : msg
+                )
+              );
+            } else if (data.type === 'error') {
+              throw new Error(data.error || "Erreur de communication avec le modèle d'IA");
+            }
+          } catch {
+            // Ignore partial SSE lines
+          }
         }
       }
 
-      const errorMsg: ChatMessage = {
-        id: `msg-${Date.now()}-err`,
-        role: 'assistant',
-        content: errorText,
-        isError: true,
-        canRetry: true,
-        timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, errorMsg]);
+      setIsChatLoading(false);
+      abortControllerRef.current = null;
+      addLog({
+        level: 'success',
+        module: 'CHAT_STREAM',
+        message: `Raisonnement & Réponse complétés avec succès (${accumulatedText.length} caractères générés).`,
+      });
+    } catch (err: any) {
+      setIsChatLoading(false);
+      abortControllerRef.current = null;
+
+      if (err.name === 'AbortError') {
+        // Handled cleanly by user stop
+        return;
+      }
+
+      console.error('Chat error:', err);
+      let errorText = err.message || 'Une erreur inattendue est survenue.';
+
+      if (errorText.includes('503') || errorText.includes('high demand') || errorText.includes('UNAVAILABLE')) {
+        errorText = "Le serveur d'intelligence artificielle connaît un pic de demande temporaire. Le système a effectué plusieurs tentatives automatiques de secours. Vous pouvez relancer la demande en cliquant sur « Réessayer » ci-dessous.";
+      }
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === aiMsgId
+            ? {
+                ...msg,
+                content: errorText,
+                isError: true,
+                canRetry: true,
+                isStreaming: false,
+                isThinkingStream: false,
+              }
+            : msg
+        )
+      );
 
       addLog({
         level: 'warn',
-        module: 'CHAT_ENGINE',
-        message: `Échec du chat : ${err.message}`,
+        module: 'CHAT_STREAM',
+        message: `Incident de flux : ${errorText.slice(0, 80)}`,
       });
 
       showToast('error', errorText.length > 90 ? `${errorText.slice(0, 85)}...` : errorText, 'Alerte Modèle');
     } finally {
       setIsChatLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -375,7 +509,7 @@ export default function App() {
     }
     const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
     if (lastUserMessage) {
-      await handleSendMessage(lastUserMessage.content, true);
+      await handleSendMessage(lastUserMessage.content, true, undefined, lastUserMessage.attachments);
     }
   };
 
@@ -422,58 +556,6 @@ export default function App() {
   const handleDeleteVideo = (id: string) => {
     setVideos((prev) => prev.filter((v) => v.id !== id));
     showToast('info', 'Vidéo supprimée de la bibliothèque.', 'Vidéo');
-  };
-
-  // Document handlers
-  const handleAddDocument = (doc: DocumentItem) => {
-    setDocuments((prev) => [doc, ...prev]);
-    addLog({
-      level: 'info',
-      module: 'DOC_PARSER',
-      message: `Document importé : « ${doc.name} » (${(doc.size / 1024).toFixed(1)} Ko)`,
-    });
-  };
-
-  const handleDeleteDocument = (id: string) => {
-    setDocuments((prev) => prev.filter((d) => d.id !== id));
-    showToast('info', 'Document supprimé de la bibliothèque.', 'Documents');
-  };
-
-  const handleUpdateDocumentSummary = (id: string, summary: string) => {
-    setDocuments((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, summary } : d))
-    );
-    addLog({
-      level: 'success',
-      module: 'DOC_PARSER',
-      message: `Synthèse générée pour le document id: ${id.slice(0, 8)}`,
-    });
-  };
-
-  const handleAddDocumentQA = (id: string, qa: { question: string; answer: string }) => {
-    setDocuments((prev) =>
-      prev.map((d) =>
-        d.id === id
-          ? {
-              ...d,
-              qas: [
-                ...d.qas,
-                {
-                  id: `qa-${Date.now()}`,
-                  question: qa.question,
-                  answer: qa.answer,
-                  timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-                },
-              ],
-            }
-          : d
-      )
-    );
-    addLog({
-      level: 'success',
-      module: 'DOC_QA',
-      message: `Question traitée sur document : « ${qa.question.slice(0, 30)}... »`,
-    });
   };
 
   // Theme container classes
@@ -530,6 +612,7 @@ export default function App() {
                   messages={messages}
                   onSendMessage={handleSendMessage}
                   onRetryMessage={handleRetryMessage}
+                  onStopGeneration={handleStopGeneration}
                   isLoading={isChatLoading}
                   thinkingMode={thinkingMode}
                   activePersona={activePersona}
@@ -596,27 +679,6 @@ export default function App() {
                   videos={videos}
                   onAddVideo={handleAddVideo}
                   onDeleteVideo={handleDeleteVideo}
-                  accentColor={settings.accentColor}
-                  onShowToast={showToast}
-                />
-              </motion.div>
-            )}
-
-            {currentTab === 'documents' && (
-              <motion.div
-                key="documents"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.2 }}
-                className="flex-1 flex flex-col h-full min-h-0 overflow-hidden"
-              >
-                <DocumentAnalyzerView
-                  documents={documents}
-                  onAddDocument={handleAddDocument}
-                  onDeleteDocument={handleDeleteDocument}
-                  onUpdateDocumentSummary={handleUpdateDocumentSummary}
-                  onAddQA={handleAddDocumentQA}
                   accentColor={settings.accentColor}
                   onShowToast={showToast}
                 />

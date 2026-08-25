@@ -64,11 +64,6 @@ export const Header: React.FC<HeaderProps> = ({
           title: 'Studio Images HD',
           subtitle: 'Création visuelle, styles artistiques & retouche d\'images',
         };
-      case 'documents':
-        return {
-          title: 'Documents IA',
-          subtitle: 'Synthèse multimodale & interrogation ciblée',
-        };
       case 'settings':
         return {
           title: 'Paramètres & Surveillance',
@@ -83,11 +78,11 @@ export const Header: React.FC<HeaderProps> = ({
     }
     switch (mode) {
       case 'fast':
-        return 'bg-cyan-600 text-white shadow-md shadow-cyan-950/50 font-semibold border-cyan-500/50';
+        return 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950/50 font-semibold border border-cyan-400/40';
       case 'advanced':
-        return 'bg-amber-600 text-white shadow-md shadow-amber-950/50 font-semibold border-amber-500/50 ring-1 ring-amber-400/30';
+        return 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md shadow-amber-950/50 font-semibold border border-amber-400/40 ring-1 ring-amber-400/30';
       default:
-        return 'bg-violet-600 text-white shadow-md shadow-violet-950/50 font-semibold border-violet-500/50';
+        return 'bg-gradient-to-r from-[#1a73e8] via-[#7c3aed] to-[#db2777] text-white shadow-md shadow-indigo-950/60 font-semibold border border-white/20';
     }
   };
 
@@ -143,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         {/* Google Grounding Toggles (Search & Maps) */}
-        {(currentTab === 'chat' || currentTab === 'documents') && (
+        {currentTab === 'chat' && (
           <div className="flex items-center gap-1.5">
             {/* Web Search Grounding */}
             <motion.button
