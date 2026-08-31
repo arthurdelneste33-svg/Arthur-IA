@@ -108,12 +108,19 @@ ${rolePrompt}`;
       });
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+
     const candidateModels = [
-      'gemini-3.7-flash',
-      'gemini-flash-latest',
       'gemini-3.1-flash-lite',
-      'gemini-2.5-flash',
+      'gemini-flash-latest',
+      'gemini-3.7-flash',
     ];
 
     if (isStreamingRequest) {
@@ -123,56 +130,83 @@ ${rolePrompt}`;
       res.flushHeaders?.();
 
       const sendEvent = (obj: any) => {
-        res.write(`data: ${JSON.stringify(obj)}\n\n`);
+        try {
+          res.write(`data: ${JSON.stringify(obj)}\n\n`);
+          if (typeof (res as any).flush === 'function') {
+            (res as any).flush();
+          }
+        } catch (e) {
+          console.warn('Vercel sendEvent error:', e);
+        }
       };
 
       let streamed = false;
-      let usedModel = 'gemini-3.7-flash';
+      let usedModel = 'gemini-3.1-flash-lite';
 
       for (const model of candidateModels) {
-        try {
-          const config: any = {
-            systemInstruction,
-          };
-          if (model === 'gemini-3.7-flash' && mode === 'advanced') {
-            config.thinkingConfig = { thinkingLevel: 'HIGH' };
-          } else if (model === 'gemini-3.7-flash') {
-            config.thinkingConfig = { thinkingLevel: 'LOW' };
-          } else if (model === 'gemini-3.1-flash-lite') {
-            config.thinkingConfig = { thinkingLevel: 'MINIMAL' };
-          }
+        let candidateDone = false;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const config: any = {
+              systemInstruction,
+            };
+            if (model === 'gemini-3.7-flash' && mode === 'advanced') {
+              config.thinkingConfig = { thinkingLevel: 'LOW' };
+            } else if (model === 'gemini-flash-latest' && mode === 'advanced') {
+              config.thinkingConfig = { thinkingLevel: 'LOW' };
+            }
 
-          const streamResult = await ai.models.generateContentStream({
-            model,
-            contents: formattedContents,
-            config,
-          });
-
-          usedModel = model;
-          sendEvent({ type: 'start', modelUsed: usedModel });
-
-          let fullAccumulated = '';
-          for await (const chunk of streamResult) {
-            const chunkText = chunk.text || '';
-            fullAccumulated += chunkText;
-            sendEvent({
-              type: 'text_chunk',
-              chunk: chunkText,
-              fullText: fullAccumulated,
+            const streamResult = await ai.models.generateContentStream({
+              model,
+              contents: formattedContents,
+              config,
             });
+
+            usedModel = model;
+            sendEvent({ type: 'start', modelUsed: usedModel });
+
+            let fullAccumulated = '';
+            for await (const chunk of streamResult) {
+              const chunkText = chunk.text || '';
+              fullAccumulated += chunkText;
+              sendEvent({
+                type: 'text_chunk',
+                chunk: chunkText,
+                fullText: fullAccumulated,
+              });
+            }
+
+            sendEvent({
+              type: 'done',
+              text: fullAccumulated,
+              modelUsed: usedModel,
+            });
+
+            streamed = true;
+            candidateDone = true;
+            break;
+          } catch (streamErr: any) {
+            const errString = `${streamErr?.message || ''} ${streamErr?.status || ''} ${JSON.stringify(streamErr || {})}`;
+            console.warn(`Vercel Stream candidate ${model} (attempt ${attempt + 1}) failed:`, streamErr?.message || streamErr);
+
+            const isQuotaExhausted =
+              errString.includes('429') ||
+              errString.includes('RESOURCE_EXHAUSTED') ||
+              errString.includes('Quota exceeded') ||
+              errString.includes('quota') ||
+              errString.includes('free_tier_requests') ||
+              errString.includes('rate-limits');
+
+            if (isQuotaExhausted) {
+              break;
+            }
+
+            if (attempt === 0) {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+            }
           }
-
-          sendEvent({
-            type: 'done',
-            text: fullAccumulated,
-            modelUsed: usedModel,
-          });
-
-          streamed = true;
-          break;
-        } catch (streamErr: any) {
-          console.warn(`Vercel Stream candidate ${model} failed:`, streamErr?.message || streamErr);
         }
+        if (candidateDone) break;
       }
 
       if (!streamed) {
@@ -187,7 +221,7 @@ ${rolePrompt}`;
 
     // Direct JSON Response
     let finalAnswer = '';
-    let usedModel = 'gemini-3.7-flash';
+    let usedModel = 'gemini-3.1-flash-lite';
 
     for (const model of candidateModels) {
       try {
@@ -195,11 +229,13 @@ ${rolePrompt}`;
           systemInstruction,
         };
         if (model === 'gemini-3.7-flash' && mode === 'advanced') {
-          config.thinkingConfig = { thinkingLevel: 'HIGH' };
-        } else if (model === 'gemini-3.7-flash') {
+          config.thinkingConfig = { thinkingLevel: 'LOW' };
+        } else if (model === 'gemini-flash-latest' && mode === 'advanced') {
           config.thinkingConfig = { thinkingLevel: 'LOW' };
         } else if (model === 'gemini-3.1-flash-lite') {
           config.thinkingConfig = { thinkingLevel: 'MINIMAL' };
+        } else if (model === 'gemini-flash-latest' && mode === 'advanced') {
+          config.thinkingConfig = { thinkingLevel: 'HIGH' };
         }
 
         const result = await ai.models.generateContent({

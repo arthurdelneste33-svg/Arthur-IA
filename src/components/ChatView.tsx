@@ -71,6 +71,8 @@ const TypewriterMarkdown: React.FC<{
   isLatest: boolean;
   onFinished?: () => void;
 }> = ({ content, isStreaming = false, isLatest, onFinished }) => {
+  const hasText = Boolean(content && content.trim().length > 0);
+
   return (
     <div className="relative group space-y-2">
       {/* Active Real-time Streaming Indicator */}
@@ -90,31 +92,46 @@ const TypewriterMarkdown: React.FC<{
 
       {/* Main Formatted Markdown */}
       <div className="prose prose-serious prose-sm max-w-none break-words leading-relaxed">
-        <ReactMarkdown
-          components={{
-            code({ className, children, ...props }) {
-              const match = /language-(\w+)/.exec(className || '');
-              const isInline = !match && !String(children).includes('\n');
-              if (isInline) {
-                return (
-                  <code className="px-1.5 py-0.5 rounded-md bg-slate-800/90 text-indigo-200 font-mono text-xs border border-slate-700/80" {...props}>
-                    {children}
-                  </code>
-                );
-              }
-              return (
-                <CodeBlock
-                  code={String(children).replace(/\n$/, '')}
-                  language={match ? match[1] : undefined}
-                />
-              );
-            },
-          }}
-        >
-          {content}
-        </ReactMarkdown>
-        {isStreaming && (
-          <span className="inline-block w-2 h-4 bg-gradient-to-t from-emerald-400 via-indigo-400 to-violet-400 ml-1.5 translate-y-0.5 rounded-xs animate-pulse shadow-sm shadow-indigo-400" />
+        {hasText ? (
+          <>
+            <ReactMarkdown
+              components={{
+                code({ className, children, ...props }) {
+                  const match = /language-(\w+)/.exec(className || '');
+                  const isInline = !match && !String(children).includes('\n');
+                  if (isInline) {
+                    return (
+                      <code className="px-1.5 py-0.5 rounded-md bg-slate-800/90 text-indigo-200 font-mono text-xs border border-slate-700/80" {...props}>
+                        {children}
+                      </code>
+                    );
+                  }
+                  return (
+                    <CodeBlock
+                      code={String(children).replace(/\n$/, '')}
+                      language={match ? match[1] : undefined}
+                    />
+                  );
+                },
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+            {isStreaming && (
+              <span className="inline-block w-2 h-4 bg-gradient-to-t from-emerald-400 via-indigo-400 to-violet-400 ml-1.5 translate-y-0.5 rounded-xs animate-pulse shadow-sm shadow-indigo-400" />
+            )}
+          </>
+        ) : isStreaming ? (
+          <div className="flex items-center gap-2 py-1 text-xs text-indigo-300">
+            <span className="flex gap-1 items-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.3s]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce [animation-delay:-0.15s]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-bounce" />
+            </span>
+            <span className="text-slate-400 italic">Arthur IA formule la réponse...</span>
+          </div>
+        ) : (
+          <span className="text-xs text-slate-400 italic">Réponse vide.</span>
         )}
       </div>
     </div>
@@ -776,7 +793,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             const isPlaying = isAudioActive && playbackState.status === 'playing';
             const isPaused = isAudioActive && playbackState.status === 'paused';
             const isBusyTTS = isTTSLoading === msg.id;
-            const hasThinking = Boolean(msg.thinking && msg.thinking.trim().length > 0) || Boolean(msg.isThinkingStream);
+            const hasThinking = Boolean(msg.thinking && msg.thinking.trim().length > 0);
 
             return (
               <motion.div
@@ -803,7 +820,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   {/* Thinking Section (Live Streaming & Retractable Block) */}
                   {isAI && hasThinking && (
                     <ThinkingVisualizer 
-                      thinkingText={msg.thinking || (msg.isThinkingStream ? "Analyse de la demande en direct..." : "")}
+                      thinkingText={msg.thinking || ""}
                       defaultExpanded={thinkingMode === 'advanced' || msg.isThinkingStream}
                       modelUsed={msg.modelUsed}
                       mode={thinkingMode}
@@ -836,7 +853,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         </div>
                       )}
                     </div>
-                  ) : (isAI && !msg.content && msg.isThinkingStream) ? null : (
+                  ) : (
                     <div
                       className={`inline-block text-left p-3 sm:p-4 rounded-2xl max-w-full ${
                         isAI
@@ -846,7 +863,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     >
                       {isAI ? (
                         <TypewriterMarkdown 
-                          content={msg.content || (msg.isStreaming ? "Formulation de la synthèse..." : "")} 
+                          content={msg.content || (msg.isStreaming ? "..." : "")} 
                           isStreaming={msg.isStreaming && !msg.isThinkingStream}
                           isLatest={isLatestAI && !isBusyTTS} 
                         />

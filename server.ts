@@ -158,7 +158,7 @@ async function generateWithRetryAndFallback(
   primaryModel: string,
   contents: any,
   config: any,
-  fallbackModels: string[] = ["gemini-flash-latest", "gemini-3.1-flash-lite"]
+  fallbackModels: string[] = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.7-flash"]
 ): Promise<{ response: any; modelUsed: string }> {
   // Ordered candidate list without duplicates
   const candidateModels = [
@@ -170,7 +170,7 @@ async function generateWithRetryAndFallback(
 
   for (let mIdx = 0; mIdx < candidateModels.length; mIdx++) {
     const currentModel = candidateModels[mIdx];
-    // Up to 2 attempts per candidate model
+    // Maximum 2 attempts per candidate model
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const modelConfig = { ...config };
@@ -184,6 +184,8 @@ async function generateWithRetryAndFallback(
           modelConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
         } else if (currentModel === "gemini-3.1-flash-lite") {
           // Supports MINIMAL, LOW, HIGH
+        } else if (currentModel === "gemini-flash-latest") {
+          // Supports thinkingConfig or standard fast inference
         } else {
           delete modelConfig.thinkingConfig;
         }
@@ -198,23 +200,36 @@ async function generateWithRetryAndFallback(
       } catch (err: any) {
         lastError = err;
         const errString = `${err?.message || ""} ${err?.status || ""} ${JSON.stringify(err || {})}`;
-        const isTransientOverload =
+        
+        const isQuotaExhausted =
+          errString.includes("429") ||
+          errString.includes("RESOURCE_EXHAUSTED") ||
+          errString.includes("Quota exceeded") ||
+          errString.includes("quota") ||
+          errString.includes("free_tier_requests") ||
+          errString.includes("rate-limits");
+
+        const isTransientServerUnavailable =
           errString.includes("503") ||
           errString.includes("UNAVAILABLE") ||
           errString.includes("high demand") ||
-          errString.includes("429") ||
-          errString.includes("RESOURCE_EXHAUSTED") ||
           errString.includes("overloaded");
 
         console.warn(
-          `[Gemini Retry] Model ${currentModel} (attempt ${attempt + 1}/2) returned error: ${err?.message || errString}`
+          `[Gemini Auto-Failover] Model ${currentModel} (attempt ${attempt + 1}/2) returned: ${err?.message || errString}`
         );
 
-        if (isTransientOverload && attempt === 0) {
-          // Wait 650ms before retrying on the same model
-          await new Promise((resolve) => setTimeout(resolve, 650));
+        // If quota is exhausted on this specific model, do NOT retry this model. Switch to next candidate immediately!
+        if (isQuotaExhausted) {
+          break;
+        }
+
+        // If transient 503 / overload on the server, retry once with short backoff
+        if (isTransientServerUnavailable && attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 350));
           continue;
         }
+
         // Move to the next fallback model candidate
         break;
       }
@@ -267,9 +282,9 @@ app.post(["/api/chat", "/chat"], async (req: Request, res: Response) => {
     } = req.body;
     const ai = getAIClient();
 
-    let modelName = "gemini-3.7-flash";
+    let modelName = "gemini-3.1-flash-lite";
     let thinkingLevel: ThinkingLevel | undefined = undefined;
-    let fallbackCandidates: string[] = ["gemini-flash-latest", "gemini-3.1-flash-lite"];
+    let fallbackCandidates: string[] = ["gemini-flash-latest", "gemini-3.7-flash"];
 
     let rolePrompt = "";
     if (role === "coder") {
@@ -293,13 +308,13 @@ app.post(["/api/chat", "/chat"], async (req: Request, res: Response) => {
     if (mode === "fast") {
       baseSystemPrompt = `Tu es « Arthur IA » (moteur Arthur IA 0.1 Flash Instant), créé et développé exclusivement par Arthur Delneste.
 - Concepteur & Créateur unique : **Arthur Delneste**.
-- Architecture : Réseau d'inférence ultra-rapide à latence minimale.
-- Directives : Réponds avec une vivacité maximale, une clarté instantanée et une pertinence chirurgicale. Rédige en Markdown soigné sans détour.
+- Architecture : Réseau d'inférence ultra-rapide à latence minimale de dernière génération.
+- Directives : Réponds avec une vivacité instantanée maximale, clarté chirurgicale et concision. Rédige en Markdown soigné sans détour.
 ${rolePrompt}
 ${verbosityInstruction}
 ${customInstruction ? `Directive prioritaire : ${customInstruction}` : ""}`;
       modelName = "gemini-3.1-flash-lite";
-      thinkingLevel = ThinkingLevel.MINIMAL;
+      thinkingLevel = undefined;
       fallbackCandidates = ["gemini-flash-latest", "gemini-3.7-flash"];
     } else if (mode === "advanced") {
       baseSystemPrompt = `Tu es « Arthur IA », intelligence artificielle souveraine de rang exécutif supérieur, conçue et développée par **Arthur Delneste**.
@@ -318,30 +333,24 @@ POSTURE ÉPISTÉMIQUE & NIVEAU D'EXCELLENCE :
 - Utilise un formatage Markdown d'exception : hiérarchie visuelle parfaite (##, ###), tableaux comparatifs synthétiques, listes ordonnées et blocs de code typés.
 ${verbosityInstruction}
 
-PROTOCOLE DE RAISONNEMENT INTÉGRAL EN PROFONDEUR :
-Pour toute requête complexe, entame ta réponse par la balise <thinking>...</thinking> dans laquelle tu consignes ton processus d'analyse réflexive :
-[1. Décomposition Axiomatique & Cadrage du Problème]
-[2. Analyse Comparative des Hypothèses & Pesée des Risques]
-[3. Démonstration Formelle & Audit de Cohérence]
-[4. Architecture de la Synthèse Finale]
-Referme scrupuleusement avec </thinking> avant de délivrer ta réponse exécutive.
+Si et seulement si la question demande une réflexion mathématique ou logique complexe, structure ton raisonnement préalable dans <thinking>...</thinking>, puis donne immédiatement ta réponse. Pour une salutation ou question simple, réponds directement sans balise thinking.
 ${customInstruction ? `Directive spécifique prioritaire : ${customInstruction}` : ""}`;
       modelName = "gemini-3.7-flash";
-      thinkingLevel = ThinkingLevel.HIGH;
-      fallbackCandidates = ["gemini-flash-latest", "gemini-3.1-flash-lite"];
+      thinkingLevel = ThinkingLevel.LOW;
+      fallbackCandidates = ["gemini-3.1-flash-lite", "gemini-flash-latest"];
     } else {
-      // Normal mode: High intelligence, ultra-fast response with ThinkingLevel.LOW
-      baseSystemPrompt = `Tu es « Arthur IA », intelligence artificielle de rang supérieur, conçue et développée par **Arthur Delneste**.
+      // Normal mode: High intelligence, ultra-fast streaming response (<100ms)
+      baseSystemPrompt = `Tu es « Arthur IA », intelligence artificielle de rang supérieur de dernière génération, conçue et développée par **Arthur Delneste**.
 - Concepteur et créateur unique : **Arthur Delneste**.
 - Modèle : **Arthur IA 0.1 Stable Alpha**.
-- Posture : Intelligence aiguë, perspicace, bienveillante et percutante.
+- Posture : Intelligence aiguë, perspicace, bienveillante, fluide et instantanée.
 ${rolePrompt}
-- Format : Markdown élégant, réponses immédiatement structurées, riches d'enseignements et directement exploitables.
+- Format : Markdown élégant, réponses immédiatement structurées, riches d'enseignements et directement exploitables. Réponds directement sans temps d'attente.
 ${verbosityInstruction}
 ${customInstruction ? `Directive spécifique : ${customInstruction}` : ""}`;
-      modelName = "gemini-3.7-flash";
-      thinkingLevel = ThinkingLevel.LOW;
-      fallbackCandidates = ["gemini-flash-latest", "gemini-3.1-flash-lite"];
+      modelName = "gemini-3.1-flash-lite";
+      thinkingLevel = undefined;
+      fallbackCandidates = ["gemini-flash-latest", "gemini-3.7-flash"];
     }
 
     let thinkingProcess = "";
@@ -494,7 +503,14 @@ app.post(["/api/chat/stream", "/chat/stream"], async (req: Request, res: Respons
 
   const sendEvent = (data: any) => {
     if (!isClientDisconnected && !res.writableEnded) {
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      try {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+        if (typeof (res as any).flush === "function") {
+          (res as any).flush();
+        }
+      } catch (writeErr) {
+        console.warn("Error writing SSE data:", writeErr);
+      }
     }
   };
 
@@ -511,12 +527,12 @@ app.post(["/api/chat/stream", "/chat/stream"], async (req: Request, res: Respons
     } = req.body;
     const ai = getAIClient();
 
-    let modelName = "gemini-3.7-flash";
+    let modelName = "gemini-3.1-flash-lite";
     let thinkingLevel: ThinkingLevel | undefined = undefined;
 
     let rolePrompt = "";
     if (role === "coder") {
-      rolePrompt = "RÔLE EXPERT: Tu es un Architecte Logiciel Principal & Ingénieur Élite. Conçois des architectures élégantes, modulaires, hautement optimisées et sécurisées. Rédige du code TypeScript/JavaScript irréprochable, typé, documenté et respectant les plus hauts standards industriels.";
+      rolePrompt = "RÔLE EXPERT: Tu es un Architecte Logiciel Principal & Ingénieur Élite. Conçois des architectures élégantes, modulaires, hautement optimisées et sécurisées. Rédige du code TypeScript/JavaScript irréprochable, typé, documenté et respectant les plus haut standards industriels.";
     } else if (role === "writer") {
       rolePrompt = "RÔLE EXPERT: Tu es un Maître Styliste, Rédacteur Stratégique et Essayiste. Sublime la langue française avec précision lexicale, clarté cristalline, force rhétorique et élégance d'exposition.";
     } else if (role === "analyst") {
@@ -537,13 +553,13 @@ app.post(["/api/chat/stream", "/chat/stream"], async (req: Request, res: Respons
     if (mode === "fast") {
       baseSystemPrompt = `Tu es « Arthur IA » (moteur Arthur IA 0.1 Flash Instant), créé et développé exclusivement par Arthur Delneste.
 - Concepteur & Créateur unique : **Arthur Delneste**.
-- Architecture : Réseau d'inférence ultra-rapide à latence minimale.
-- Directives : Réponds avec une vivacité maximale, une clarté instantanée et une pertinence chirurgicale. Rédige en Markdown soigné sans détour.
+- Architecture : Réseau d'inférence ultra-rapide à latence minimale de dernière génération.
+- Directives : Réponds avec une vivacité instantanée maximale, clarté chirurgicale et concision. Rédige en Markdown soigné sans détour.
 ${rolePrompt}
 ${verbosityInstruction}
 ${customInstruction ? `Directive prioritaire : ${customInstruction}` : ""}`;
       modelName = "gemini-3.1-flash-lite";
-      thinkingLevel = ThinkingLevel.MINIMAL;
+      thinkingLevel = undefined;
     } else if (mode === "advanced") {
       baseSystemPrompt = `Tu es « Arthur IA », intelligence artificielle souveraine de rang exécutif supérieur, conçue et développée par **Arthur Delneste**.
 Ton moteur d'inférence correspond au modèle « Arthur IA 0.1 Stable Alpha », doté d'une matrice cognitive multi-dimensionnelle et d'une rigueur épistémique de référence.
@@ -561,28 +577,22 @@ POSTURE ÉPISTÉMIQUE & NIVEAU D'EXCELLENCE :
 - Utilise un formatage Markdown d'exception : hiérarchie visuelle parfaite (##, ###), tableaux comparatifs synthétiques, listes ordonnées et blocs de code typés.
 ${verbosityInstruction}
 
-PROTOCOLE DE RAISONNEMENT INTÉGRAL EN PROFONDEUR :
-Pour toute requête complexe, entame ta réponse par la balise <thinking>...</thinking> dans laquelle tu consignes ton processus d'analyse réflexive :
-[1. Décomposition Axiomatique & Cadrage du Problème]
-[2. Analyse Comparative des Hypothèses & Pesée des Risques]
-[3. Démonstration Formelle & Audit de Cohérence]
-[4. Architecture de la Synthèse Finale]
-Referme scrupuleusement avec </thinking> avant de délivrer ta réponse exécutive.
+Si et seulement si la question demande une réflexion mathématique ou logique complexe, structure ton raisonnement préalable dans <thinking>...</thinking>, puis donne immédiatement ta réponse. Pour une salutation ou question simple, réponds directement sans balise thinking.
 ${customInstruction ? `Directive spécifique prioritaire : ${customInstruction}` : ""}`;
-      modelName = "gemini-3.7-flash";
-      thinkingLevel = ThinkingLevel.HIGH;
+      modelName = "gemini-3.1-flash-lite";
+      thinkingLevel = ThinkingLevel.LOW;
     } else {
-      // Normal mode: High intelligence, ultra-fast streaming response (<150ms)
-      baseSystemPrompt = `Tu es « Arthur IA », intelligence artificielle de rang supérieur, conçue et développée par **Arthur Delneste**.
+      // Normal mode: High intelligence, ultra-fast streaming response (<100ms)
+      baseSystemPrompt = `Tu es « Arthur IA », intelligence artificielle de rang supérieur de dernière génération, conçue et développée par **Arthur Delneste**.
 - Concepteur et créateur unique : **Arthur Delneste**.
 - Modèle : **Arthur IA 0.1 Stable Alpha**.
-- Posture : Intelligence aiguë, perspicace, bienveillante et percutante.
+- Posture : Intelligence aiguë, perspicace, bienveillante, fluide et instantanée.
 ${rolePrompt}
-- Format : Markdown élégant, réponses immédiatement structurées, riches d'enseignements et directement exploitables.
+- Format : Markdown élégant, réponses immédiatement structurées, riches d'enseignements et directement exploitables. Réponds directement sans temps d'attente.
 ${verbosityInstruction}
 ${customInstruction ? `Directive spécifique : ${customInstruction}` : ""}`;
-      modelName = "gemini-3.7-flash";
-      thinkingLevel = ThinkingLevel.LOW;
+      modelName = "gemini-3.1-flash-lite";
+      thinkingLevel = undefined;
     }
 
     const formattedContents = messages.map((m: any) => {
@@ -640,112 +650,186 @@ ${customInstruction ? `Directive spécifique : ${customInstruction}` : ""}`;
 
     let streamResponse: any = null;
     let actualModel = modelName;
-    const candidates = [modelName, "gemini-flash-latest", "gemini-3.7-flash", "gemini-3.1-flash-lite"];
+    const candidates = [
+      modelName,
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest",
+      "gemini-3.7-flash",
+    ];
     const uniqueCandidates = [...new Set(candidates)];
 
-    for (const cand of uniqueCandidates) {
-      try {
-        const streamConfig = { ...config };
-        if (cand === "gemini-3.7-flash") {
-          if (mode === "advanced") {
-            streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
-          } else {
-            streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
-          }
-        } else if (cand === "gemini-3.1-flash-lite") {
-          streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
-        } else if (cand === "gemini-3.1-pro-preview") {
-          streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
-        } else {
-          delete streamConfig.thinkingConfig;
-        }
-
-        streamResponse = await ai.models.generateContentStream({
-          model: cand,
-          contents: formattedContents,
-          config: streamConfig,
-        });
-        actualModel = cand;
-        break;
-      } catch (err: any) {
-        console.warn(`Streaming attempt with ${cand} failed:`, err?.message || err);
-      }
-    }
-
-    if (!streamResponse) {
-      sendEvent({ type: "error", error: "Le modèle d'IA n'est pas disponible pour le moment. Veuillez réessayer." });
-      res.end();
-      return;
-    }
-
-    sendEvent({ type: "start", modelUsed: actualModel });
-
+    let streamSuccess = false;
     let fullAccumulated = "";
     let thinkingSent = "";
     let textSent = "";
     let allGroundingSources: any[] = [];
     let allMapPlaces: any[] = [];
 
-    for await (const chunk of streamResponse) {
+    for (const cand of uniqueCandidates) {
       if (isClientDisconnected) break;
-      const chunkText = chunk.text || "";
-      fullAccumulated += chunkText;
+      let candSuccess = false;
 
-      const groundingChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-      if (groundingChunks.length > 0) {
-        const sources = groundingChunks
-          .filter((c: any) => c.web?.uri)
-          .map((c: any) => ({
-            title: c.web?.title || c.web?.uri,
-            url: c.web?.uri,
-          }));
-        if (sources.length > 0) allGroundingSources = sources;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (isClientDisconnected) break;
+        try {
+          const streamConfig = { ...config };
+          if (cand === "gemini-3.7-flash" && mode === "advanced") {
+            streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+          } else if (cand === "gemini-3.1-flash-lite" && mode === "advanced") {
+            streamConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+          } else {
+            delete streamConfig.thinkingConfig;
+          }
 
-        const mapPlaces = groundingChunks
-          .filter((c: any) => c.maps?.uri || c.maps?.title)
-          .map((c: any) => ({
-            title: c.maps?.title || "Lieu sur Google Maps",
-            url: c.maps?.uri,
-            snippet: c.maps?.placeAnswerSources?.reviewSnippets?.[0] || undefined,
-          }));
-        if (mapPlaces.length > 0) allMapPlaces = mapPlaces;
+          streamResponse = await ai.models.generateContentStream({
+            model: cand,
+            contents: formattedContents,
+            config: streamConfig,
+          });
+          actualModel = cand;
+
+          // Verify that the stream actually produces content
+          let candidateAccumulated = "";
+          let candidateThinkingSent = "";
+          let candidateTextSent = "";
+          let candidateSources: any[] = [];
+          let candidatePlaces: any[] = [];
+          let emittedStart = false;
+
+          for await (const chunk of streamResponse) {
+            if (isClientDisconnected) break;
+            const chunkText = chunk.text || "";
+            candidateAccumulated += chunkText;
+
+            if (!emittedStart) {
+              sendEvent({ type: "start", modelUsed: cand });
+              emittedStart = true;
+            }
+
+            const groundingChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+            if (groundingChunks.length > 0) {
+              const sources = groundingChunks
+                .filter((c: any) => c.web?.uri)
+                .map((c: any) => ({
+                  title: c.web?.title || c.web?.uri,
+                  url: c.web?.uri,
+                }));
+              if (sources.length > 0) candidateSources = sources;
+
+              const mapPlaces = groundingChunks
+                .filter((c: any) => c.maps?.uri || c.maps?.title)
+                .map((c: any) => ({
+                  title: c.maps?.title || "Lieu sur Google Maps",
+                  url: c.maps?.uri,
+                  snippet: c.maps?.placeAnswerSources?.reviewSnippets?.[0] || undefined,
+                }));
+              if (mapPlaces.length > 0) candidatePlaces = mapPlaces;
+            }
+
+            const openTagIdx = candidateAccumulated.indexOf("<thinking>");
+            const closeTagIdx = candidateAccumulated.indexOf("</thinking>");
+
+            if (openTagIdx !== -1 && closeTagIdx === -1) {
+              const currentThinking = candidateAccumulated.slice(openTagIdx + 10);
+              const delta = currentThinking.slice(candidateThinkingSent.length);
+              if (delta) {
+                candidateThinkingSent = currentThinking;
+                sendEvent({ type: "thought_chunk", chunk: delta, fullThinking: candidateThinkingSent });
+              }
+            } else if (closeTagIdx !== -1) {
+              if (openTagIdx !== -1) {
+                const finalThinking = candidateAccumulated.slice(openTagIdx + 10, closeTagIdx).trim();
+                const remainingThoughtDelta = finalThinking.slice(candidateThinkingSent.length);
+                if (remainingThoughtDelta) {
+                  candidateThinkingSent = finalThinking;
+                  sendEvent({ type: "thought_chunk", chunk: remainingThoughtDelta, fullThinking: candidateThinkingSent });
+                }
+              }
+              sendEvent({ type: "thought_end", thinking: candidateThinkingSent });
+
+              const currentText = candidateAccumulated.slice(closeTagIdx + 11).trimStart();
+              const delta = currentText.slice(candidateTextSent.length);
+              if (delta) {
+                candidateTextSent = currentText;
+                sendEvent({ type: "text_chunk", chunk: delta, fullText: candidateTextSent });
+              }
+            } else {
+              const delta = candidateAccumulated.slice(candidateTextSent.length);
+              if (delta) {
+                candidateTextSent = candidateAccumulated;
+                sendEvent({ type: "text_chunk", chunk: delta, fullText: candidateTextSent });
+              }
+            }
+          }
+
+          if (candidateAccumulated.trim().length > 0) {
+            if (!candidateTextSent) {
+              candidateTextSent = candidateAccumulated.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "").trim();
+              if (candidateTextSent) {
+                sendEvent({ type: "text_chunk", chunk: candidateTextSent, fullText: candidateTextSent });
+              }
+            }
+
+            fullAccumulated = candidateAccumulated;
+            thinkingSent = candidateThinkingSent;
+            textSent = candidateTextSent;
+            allGroundingSources = candidateSources;
+            allMapPlaces = candidatePlaces;
+            streamSuccess = true;
+            candSuccess = true;
+            break;
+          }
+        } catch (err: any) {
+          const errString = `${err?.message || ""} ${err?.status || ""} ${JSON.stringify(err || {})}`;
+          console.warn(`Streaming attempt with ${cand} (try ${attempt + 1}/2) failed:`, err?.message || err);
+
+          const isQuotaExhausted =
+            errString.includes("429") ||
+            errString.includes("RESOURCE_EXHAUSTED") ||
+            errString.includes("Quota exceeded") ||
+            errString.includes("quota") ||
+            errString.includes("free_tier_requests") ||
+            errString.includes("rate-limits");
+
+          // If quota is exhausted on this model, immediately switch to next model without retrying
+          if (isQuotaExhausted) {
+            break;
+          }
+
+          if (attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
       }
 
-      const openTagIdx = fullAccumulated.indexOf("<thinking>");
-      const closeTagIdx = fullAccumulated.indexOf("</thinking>");
+      if (candSuccess) break;
+    }
 
-      if (openTagIdx !== -1 && closeTagIdx === -1) {
-        const currentThinking = fullAccumulated.slice(openTagIdx + 10);
-        const delta = currentThinking.slice(thinkingSent.length);
-        if (delta) {
-          thinkingSent = currentThinking;
-          sendEvent({ type: "thought_chunk", chunk: delta, fullThinking: thinkingSent });
-        }
-      } else if (closeTagIdx !== -1) {
-        if (openTagIdx !== -1) {
-          const finalThinking = fullAccumulated.slice(openTagIdx + 10, closeTagIdx).trim();
-          const remainingThoughtDelta = finalThinking.slice(thinkingSent.length);
-          if (remainingThoughtDelta) {
-            thinkingSent = finalThinking;
-            sendEvent({ type: "thought_chunk", chunk: remainingThoughtDelta, fullThinking: thinkingSent });
-          }
-        }
-        sendEvent({ type: "thought_end", thinking: thinkingSent });
-
-        const currentText = fullAccumulated.slice(closeTagIdx + 11).trimStart();
-        const delta = currentText.slice(textSent.length);
-        if (delta) {
-          textSent = currentText;
-          sendEvent({ type: "text_chunk", chunk: delta, fullText: textSent });
-        }
-      } else {
-        if (!fullAccumulated.startsWith("<think")) {
-          const delta = fullAccumulated.slice(textSent.length);
-          if (delta) {
-            textSent = fullAccumulated;
-            sendEvent({ type: "text_chunk", chunk: delta, fullText: textSent });
-          }
-        }
+    if (!streamSuccess) {
+      // Fallback to non-streaming direct generation if all streaming attempts failed
+      try {
+        const { response: fallbackRes, modelUsed: fallbackModel } = await generateWithRetryAndFallback(
+          ai,
+          "gemini-3.1-flash-lite",
+          formattedContents,
+          config,
+          ["gemini-flash-latest", "gemini-3.7-flash"]
+        );
+        const fallbackText = fallbackRes.text || "";
+        sendEvent({ type: "start", modelUsed: fallbackModel });
+        sendEvent({ type: "text_chunk", chunk: fallbackText, fullText: fallbackText });
+        sendEvent({
+          type: "done",
+          modelUsed: fallbackModel,
+          text: fallbackText,
+        });
+        res.end();
+        return;
+      } catch (nonStreamErr: any) {
+        console.error("Non-stream fallback also failed:", nonStreamErr);
+        sendEvent({ type: "error", error: "Le modèle d'IA est actuellement saturé. Veuillez réessayer dans un instant." });
+        res.end();
+        return;
       }
     }
 

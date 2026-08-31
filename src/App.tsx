@@ -306,7 +306,7 @@ export default function App() {
       thinking: '',
       mode: thinkingMode,
       isStreaming: true,
-      isThinkingStream: true,
+      isThinkingStream: false,
       timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
     };
 
@@ -421,28 +421,27 @@ export default function App() {
       let receivedSources: any[] | undefined = undefined;
       let receivedPlaces: any[] | undefined = undefined;
 
-      // Micro-batched UI update queue to guarantee 60fps rendering without choking React
-      let pendingUpdate = false;
-      const scheduleUIUpdate = (isThinking: boolean, isStreaming: boolean) => {
-        if (pendingUpdate) return;
-        pendingUpdate = true;
-        requestAnimationFrame(() => {
-          pendingUpdate = false;
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === aiMsgId
-                ? {
-                    ...msg,
-                    content: accumulatedText,
-                    thinking: accumulatedThinking,
-                    modelUsed: receivedModel || msg.modelUsed,
-                    isThinkingStream: isThinking,
-                    isStreaming: isStreaming,
-                  }
-                : msg
-            )
-          );
-        });
+      // Immediate and direct reactive UI updates
+      let lastUiUpdateTime = 0;
+      const updateUIMessage = (isThinking: boolean, isStreaming: boolean, force = false) => {
+        const now = Date.now();
+        if (!force && now - lastUiUpdateTime < 35) return; // ~30fps throttle for smooth rendering
+        lastUiUpdateTime = now;
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === aiMsgId
+              ? {
+                  ...msg,
+                  content: accumulatedText,
+                  thinking: accumulatedThinking,
+                  modelUsed: receivedModel || msg.modelUsed,
+                  isThinkingStream: isThinking && Boolean(accumulatedThinking.trim()),
+                  isStreaming: isStreaming,
+                }
+              : msg
+          )
+        );
       };
 
       while (true) {
@@ -457,70 +456,97 @@ export default function App() {
           const trimmed = part.trim();
           if (!trimmed.startsWith('data: ')) continue;
           const jsonStr = trimmed.slice(6);
+          let data: any = null;
           try {
-            const data = JSON.parse(jsonStr);
-
-            if (data.type === 'start') {
-              receivedModel = data.modelUsed;
-              scheduleUIUpdate(true, true);
-            } else if (data.type === 'thought_chunk') {
-              accumulatedThinking = data.fullThinking || (accumulatedThinking + data.chunk);
-              scheduleUIUpdate(true, true);
-            } else if (data.type === 'thought_end') {
-              if (!thinkingEndTime) thinkingEndTime = Date.now();
-              if (data.thinking) accumulatedThinking = data.thinking;
-              const duration = thinkingEndTime - thinkingStartTime;
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === aiMsgId
-                    ? { 
-                        ...msg, 
-                        thinking: accumulatedThinking,
-                        isThinkingStream: false,
-                        thinkingDurationMs: duration,
-                      }
-                    : msg
-                )
-              );
-            } else if (data.type === 'text_chunk') {
-              if (!thinkingEndTime) thinkingEndTime = Date.now();
-              accumulatedText = data.fullText || (accumulatedText + data.chunk);
-              scheduleUIUpdate(false, true);
-            } else if (data.type === 'done') {
-              if (!thinkingEndTime) thinkingEndTime = Date.now();
-              if (data.modelUsed) receivedModel = data.modelUsed;
-              if (data.sources) receivedSources = data.sources;
-              if (data.mapPlaces) receivedPlaces = data.mapPlaces;
-              if (data.thinking) accumulatedThinking = data.thinking;
-              if (data.text) accumulatedText = data.text;
-
-              const duration = thinkingEndTime ? thinkingEndTime - thinkingStartTime : undefined;
-
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === aiMsgId
-                    ? {
-                        ...msg,
-                        content: accumulatedText,
-                        thinking: accumulatedThinking,
-                        modelUsed: receivedModel || msg.modelUsed,
-                        sources: receivedSources,
-                        mapPlaces: receivedPlaces,
-                        isStreaming: false,
-                        isThinkingStream: false,
-                        thinkingDurationMs: duration,
-                      }
-                    : msg
-                )
-              );
-            } else if (data.type === 'error') {
-              throw new Error(data.error || "Erreur de communication avec le modèle d'IA");
-            }
+            data = JSON.parse(jsonStr);
           } catch {
-            // Ignore partial SSE lines
+            // Ignore malformed or partial JSON line
+            continue;
+          }
+
+          if (!data) continue;
+
+          if (data.type === 'error') {
+            throw new Error(data.error || "Erreur de communication avec le modèle d'IA");
+          } else if (data.type === 'start') {
+            receivedModel = data.modelUsed;
+            updateUIMessage(false, true, true);
+          } else if (data.type === 'thought_chunk') {
+            accumulatedThinking = data.fullThinking || (accumulatedThinking + data.chunk);
+            updateUIMessage(true, true);
+          } else if (data.type === 'thought_end') {
+            if (!thinkingEndTime) thinkingEndTime = Date.now();
+            if (data.thinking) accumulatedThinking = data.thinking;
+            const duration = thinkingEndTime - thinkingStartTime;
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === aiMsgId
+                  ? { 
+                      ...msg, 
+                      thinking: accumulatedThinking,
+                      isThinkingStream: false,
+                      thinkingDurationMs: duration,
+                    }
+                  : msg
+              )
+            );
+          } else if (data.type === 'text_chunk') {
+            if (!thinkingEndTime) thinkingEndTime = Date.now();
+            accumulatedText = data.fullText || (accumulatedText + data.chunk);
+            updateUIMessage(false, true);
+          } else if (data.type === 'done') {
+            if (!thinkingEndTime) thinkingEndTime = Date.now();
+            if (data.modelUsed) receivedModel = data.modelUsed;
+            if (data.sources) receivedSources = data.sources;
+            if (data.mapPlaces) receivedPlaces = data.mapPlaces;
+            if (data.thinking) accumulatedThinking = data.thinking;
+            if (data.text) accumulatedText = data.text;
+
+            const duration = thinkingEndTime ? thinkingEndTime - thinkingStartTime : undefined;
+
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === aiMsgId
+                  ? {
+                      ...msg,
+                      content: accumulatedText,
+                      thinking: accumulatedThinking,
+                      modelUsed: receivedModel || msg.modelUsed,
+                      sources: receivedSources,
+                      mapPlaces: receivedPlaces,
+                      isStreaming: false,
+                      isThinkingStream: false,
+                      thinkingDurationMs: duration,
+                    }
+                  : msg
+              )
+            );
           }
         }
       }
+
+      // If stream ended but no text was received at all, throw an error to display retry card
+      if (!accumulatedText.trim()) {
+        throw new Error("Aucune réponse n'a été renvoyée par le modèle d'IA. Veuillez relancer la requête.");
+      }
+
+      // Ensure final message state is settled cleanly after stream closes
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === aiMsgId
+            ? {
+                ...msg,
+                content: accumulatedText,
+                thinking: accumulatedThinking || msg.thinking,
+                modelUsed: receivedModel || msg.modelUsed,
+                sources: receivedSources || msg.sources,
+                mapPlaces: receivedPlaces || msg.mapPlaces,
+                isStreaming: false,
+                isThinkingStream: false,
+              }
+            : msg
+        )
+      );
 
       setIsChatLoading(false);
       abortControllerRef.current = null;
@@ -541,8 +567,15 @@ export default function App() {
       console.error('Chat error:', err);
       let errorText = err.message || 'Une erreur inattendue est survenue.';
 
-      if (errorText.includes('503') || errorText.includes('high demand') || errorText.includes('UNAVAILABLE')) {
-        errorText = "Le serveur d'intelligence artificielle connaît un pic de demande temporaire. Le système a effectué plusieurs tentatives automatiques de secours. Vous pouvez relancer la demande en cliquant sur « Réessayer » ci-dessous.";
+      if (
+        errorText.includes('503') ||
+        errorText.includes('high demand') ||
+        errorText.includes('UNAVAILABLE') ||
+        errorText.includes('saturé') ||
+        errorText.includes('Aucune réponse') ||
+        errorText.includes('Erreur de communication')
+      ) {
+        errorText = "Le serveur d'intelligence artificielle connaît un pic de demande temporaire. Le système a effectué plusieurs tentatives automatiques de secours. Vous pouvez relancer la génération en un clic en cliquant sur « Réessayer la requête » ci-dessous.";
       }
 
       setMessages((prev) =>
